@@ -1,0 +1,283 @@
+---
+title: "00_Motion_Detection"
+author: "Jackie Kirshenbaum"
+date: "1/10/2022; revisited 02/27/2022"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Loading Libraries
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+```
+
+# Read in Pre Data
+censor file is a combination of 1s and 0s, where 0s are censored volumes that exhibted >.3mm FD (including the prev vol) and volumes where at least 5% of brain voxels are computed as outliers.
+
+## filepaths
+
+```{r filepaths pre, message=FALSE}
+files <- list.files(
+  path = "~/Jackie/censor_files_pre.3", all.files = TRUE, full.names = TRUE)
+files <- files[-1]
+files <- files[-1]
+
+
+file_subj_name <- list.files(
+  path = "~/Jackie/censor_files_pre.3", all.files = FALSE,
+full.names = FALSE)
+
+
+file_comb <- cbind(file_subj_name, files)
+```
+
+## selecting subj ids
+
+```{r}
+# selecting subject id
+c1 <- "censor_"
+nchar(c1) # 7
+c2 <- "_combined_2.1D" 
+nchar(c2) # 14
+filename <- 
+  file_comb %>%
+  data.frame() %>%
+  mutate(
+    subID = str_sub(file_subj_name, start = 8, end = -15)
+  ) %>%
+  dplyr::select(subID) %>%
+  as.vector()
+```
+
+## reading in and unlisting
+
+```{r}
+# reading in each 1D file
+tbls <- rbind(lapply(file_comb[,2],
+  read.delim)
+  )
+
+# selecting the 1 column of 0s and 1s
+tbl <-
+  tbls %>%
+  map(1)
+
+# unlisting and converting to df
+x <- data.frame(matrix(unlist(tbl), nrow = length(tbl), byrow = TRUE))
+
+# merging subj id name and the motion data
+x2 <- cbind(filename, x)
+```
+
+# Summing number of censored volumes
+
+```{r}
+# 0 = censored vols
+
+cens_df <-
+  x2 %>%
+  mutate(across(X1:X490, factor),
+         subID = factor(subID))
+
+cens_df_long <-
+  cens_df %>%
+  pivot_longer(cols = X1:X490, names_to = "cens", values_to = "bin") %>%
+  group_by(subID, bin) %>%
+  summarise(
+    n_censored = n()
+  ) %>%
+  tibble() %>% # adding dummy rows to appropriately compute proprtion of vols censored vs not
+  add_row(tibble_row(subID = "sub-HP602", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-HP800", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-HP813", bin = "0", n_censored = 0)) %>%  
+  add_row(tibble_row(subID = "sub-HP815", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-HP823", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-LP218", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-LP244", bin = "0", n_censored = 0)) %>%    
+  add_row(tibble_row(subID = "sub-LP254", bin = "0", n_censored = 0)) %>%
+  add_row(tibble_row(subID = "sub-LP256", bin = "0", n_censored = 0)) %>%   
+  add_row(tibble_row(subID = "sub-LP412", bin = "0", n_censored = 0)) %>%     
+  filter(
+    bin == "0"
+  ) %>%
+  mutate(
+    perc_cens = n_censored/490
+  )
+
+```
+
+# Read in Post Data
+
+## filepaths
+
+```{r filepaths post, message=FALSE}
+files_post <- list.files(
+  path = "~/Jackie/censor_files_post.3", all.files = TRUE, full.names = TRUE)
+files_post <- files_post[-1]
+files_post <- files_post[-1]
+
+
+file_subj_name_post <- list.files(
+  path = "~/Jackie/censor_files_post.3", all.files = FALSE,
+full.names = FALSE)
+
+
+file_comb_post <- cbind(file_subj_name_post, files_post)
+```
+
+## selecting subj ids
+
+```{r}
+# selecting subject id
+c1 <- "censor_"
+nchar(c1) # 7
+c2 <- "_combined_2.1D" 
+nchar(c2) # 14
+filename_post <- 
+  file_comb_post %>%
+  data.frame() %>%
+  mutate(
+    subID = str_sub(file_subj_name_post, start = 8, end = -15)
+  ) %>%
+  dplyr::select(subID) %>%
+  as.vector()
+```
+
+## reading in and unlisting
+
+```{r}
+# reading in each 1D file
+tbls_post <- rbind(lapply(file_comb_post[,2],
+  read.delim)
+  )
+
+# selecting the 1 column of 0s and 1s
+tbl_post <-
+  tbls_post %>%
+  map(1)
+
+# unlisting and converting to df
+x_post <- data.frame(matrix(unlist(tbl_post), nrow = length(tbl_post), byrow = TRUE))
+
+# merging subj id name and the motion data
+x2_post <- cbind(filename_post, x_post)
+```
+
+# Summing number of censored volumes
+
+```{r}
+# 0 = censored vols
+
+cens_df_post <-
+  x2_post %>%
+  mutate(across(X1:X490, factor),
+         subID = factor(subID))
+
+cens_df_post_long <-
+  cens_df_post %>%
+  pivot_longer(cols = X1:X490, names_to = "cens_post", values_to = "bin_post") %>%
+  group_by(subID, bin_post) %>%
+  summarise(
+    n_censored_post = n()
+  ) %>%
+  tibble() %>% # adding dummy rows to appropriately compute proprtion of vols censored vs not
+  add_row(tibble_row(subID = "sub-HP808", bin_post = "0", n_censored_post = 0)) %>%
+  add_row(tibble_row(subID = "sub-HP813", bin_post = "0", n_censored_post = 0)) %>%
+  add_row(tibble_row(subID = "sub-HP820", bin_post = "0", n_censored_post = 0)) %>%  
+  add_row(tibble_row(subID = "sub-LP254", bin_post = "0", n_censored_post = 0)) %>%
+  add_row(tibble_row(subID = "sub-LP404", bin_post = "0", n_censored_post = 0)) %>%
+  filter(
+    bin_post == "0"
+  ) %>%
+  mutate(
+    perc_cens_post = n_censored_post/490
+  )
+```
+
+# Combining pre and post motion censor file
+
+```{r}
+cens_comb <-
+  full_join(
+    cens_df_long,
+    cens_df_post_long,
+    by = "subID"
+  ) %>%
+  rename(
+    n_censored_pre = n_censored,
+    perc_cens_pre = perc_cens
+  ) %>%
+  dplyr::select(-bin, -bin_post)
+```
+
+## Exclude?
+
+_denoting whether >XX% frames regressed as outliers_
+
+> 30% of vols, censored at .3mm
+
+```{r}
+cens_comb_ex <-
+  cens_comb %>%
+  mutate(
+    exclude_pre =
+      ifelse(
+        perc_cens_pre > .30| is.na(perc_cens_pre),
+        "1",
+        "0"
+      ),
+    exclude_post =
+      ifelse(
+        perc_cens_post > .30 | is.na(perc_cens_post),
+        "1",
+        "0"
+      ),
+    exclude_both =
+      ifelse(
+        exclude_pre == "1" |
+          exclude_post == "1",
+        "1",
+        "0"
+      ),
+    Risk =
+      ifelse(
+        str_detect(subID, "HP"), "high_risk", "low_risk"
+      )
+    )
+```
+
+### Summary
+
+```{r}
+cens_comb_ex %>%
+  group_by(exclude_both, Risk) %>%
+  summarise(
+    n = n()
+  )
+```
+
+## filter those who are excluded  
+_either based on motion or not having both pre/post data_  
+```{r}
+cens_comb_ex %>%
+  filter(
+    exclude_both == "1"
+  ) %>%
+  dplyr::select(subID)
+```
+
+```{r}
+write_csv(cens_comb_ex, "~/Jackie/pre_and_post_excl_ids_.3mm.csv")
+```
+

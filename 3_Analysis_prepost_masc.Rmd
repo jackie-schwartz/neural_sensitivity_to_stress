@@ -1,0 +1,599 @@
+---
+title: "Analysis_prepost_masc"
+author: "Jackie Kirshenbaum"
+date: "`r format(Sys.Date(), '%B %e %Y')`"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+---
+
+# Libraries 
+
+```{r, libraries, message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(forcats)
+library(DescTools)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(robustHD)
+library(qwraps2)
+library(knitr)
+library(lme4)
+```
+
+# Functions
+
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+library(sjPlot)
+library(lmerTest)
+library(performance)
+library(reghelper)
+library(parameters)
+library(MuMIn)
+```
+
+# Read in Data
+
+```{r, filepaths, message=FALSE}
+pad_and_rois_merge_data_fp <- "~/Jackie/pad_and_rois_usable_masc.csv"
+rois_change_LOSS_fp <- "~/Jackie/rois_change_LOSS.csv"
+rois_change_WIN_fp <- "~/Jackie/rois_change_WIN.csv"
+mfq_fp <- "~/Jackie/pad_and_rois_usable_mafq.csv"
+
+mfq <-
+  read_csv(mfq_fp) %>%
+  dplyr::select(subID, visit, visitN, mafq_c_w, mafq_c_w_log, condition) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    visit = factor(visit),
+    condition = factor(condition)
+  )
+
+pad_and_rois_merge_data <- read_csv(pad_and_rois_merge_data_fp) %>%
+    dplyr::mutate(
+    subID = factor(subID),
+    visit = factor(visit),
+    condition = factor(condition)
+  )
+pad_and_rois_merge_data <-
+  left_join(pad_and_rois_merge_data, mfq, by = c("subID", "visit", "visitN", "condition"))
+  
+pad_and_rois_merge_data_WIN <- 
+  pad_and_rois_merge_data %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    Group = factor(Group),
+    condition = factor(condition)
+    ) %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(-c(ends_with(".pre"), ends_with(".post")))
+
+pad_and_rois_merge_data_LOSS <- 
+  pad_and_rois_merge_data %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    Group = factor(Group),
+    condition = factor(condition)
+    ) %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(-c(ends_with(".pre"), ends_with(".post")))
+
+roi_LOSS <-
+  read_csv(rois_change_LOSS_fp) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+    )  
+roi_WIN <-
+  read_csv(rois_change_WIN_fp) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+    )  
+
+pad_and_rois_merge_WIN <-
+  left_join(
+    pad_and_rois_merge_data_WIN,
+    roi_WIN,
+    by = c("subID", "condition")
+  )
+
+pad_and_rois_merge_LOSS <-
+  left_join(
+    pad_and_rois_merge_data_LOSS,
+    roi_LOSS,
+    by = c("subID", "condition")
+   )
+
+```
+
+## z scoring variables
+```{r}
+pad_and_rois_merge_WIN_z <-
+  pad_and_rois_merge_WIN %>%
+  dplyr::mutate(
+    Group = factor(Group),
+    Sex = factor(Sex),
+    Age_z = as.numeric(scale(Age)),
+    TannerMean_z = as.numeric(scale(TannerMean)),
+    aleq_c.L1_z = as.numeric(scale(aleq_c.L1)), # L1 total stress
+    aleq_c.L2_z = as.numeric(scale(aleq_c.L2)), # L2 total stress
+    aleqNonInt_c.L1_z = as.numeric(scale(aleqNonInt_c.L1)), # L1 non-interpersonal stress
+    aleqNonInt_c.L2_z = as.numeric(scale(aleqNonInt_c.L2)), # L2 non-interpersonal stress 
+    aleqInt_c.L1_z = as.numeric(scale(aleqInt_c.L1)), # L1 interpersonal stress
+    aleqInt_c.L2_z = as.numeric(scale(aleqInt_c.L2)), # L2 interpersonal stress
+    visit_num_z = as.numeric(scale(visitN)),
+    masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
+    masc_c_social_z = as.numeric(scale(masqsocial_c)), # social anxiety
+    mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
+    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression 
+    shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia
+    NAcc_l_rawdiff_z = as.numeric(scale(NAcc_l_rawdiff)),
+    NAcc_r_rawdiff_z = as.numeric(scale(NAcc_r_rawdiff)), 
+    NAcc_avg_rawdiff_z = as.numeric(scale(NAcc_avg_rawdiff)),       
+    caudate_l_rawdiff_z = as.numeric(scale(caudate_l_rawdiff)),
+    caudate_r_rawdiff_z = as.numeric(scale(caudate_r_rawdiff)), 
+    caudate_avg_rawdiff_z = as.numeric(scale(caudate_avg_rawdiff)),
+    putamen_l_rawdiff_z = as.numeric(scale(putamen_l_rawdiff)),
+    putamen_r_rawdiff_z = as.numeric(scale(putamen_r_rawdiff)), 
+    putamen_avg_rawdiff_z = as.numeric(scale(putamen_avg_rawdiff)),
+    NAcc_l_rawchange_z = as.numeric(scale(NAcc_l_rawchange)),
+    NAcc_r_rawchange_z = as.numeric(scale(NAcc_r_rawchange)), 
+    NAcc_avg_rawchange_z = as.numeric(scale(NAcc_avg_rawchange)),       
+    caudate_l_rawchange_z = as.numeric(scale(caudate_l_rawchange)),
+    caudate_r_rawchange_z = as.numeric(scale(caudate_r_rawchange)), 
+    caudate_avg_rawchange_z = as.numeric(scale(caudate_avg_rawchange)),
+    putamen_l_rawchange_z = as.numeric(scale(putamen_l_rawchange)),
+    putamen_r_rawchange_z = as.numeric(scale(putamen_r_rawchange)), 
+    putamen_avg_rawchange_z = as.numeric(scale(putamen_avg_rawchange))       
+    ) 
+
+contrasts(pad_and_rois_merge_WIN_z$Group) = contr.treatment(2, base = 2)
+contrasts(pad_and_rois_merge_WIN_z$Sex) = contr.treatment(2, base = 2)
+
+pad_and_rois_merge_LOSS_z <-
+  pad_and_rois_merge_LOSS %>%
+  dplyr::mutate(
+    Group = factor(Group),
+    Sex = factor(Sex),
+    Age_z = as.numeric(scale(Age)),
+    TannerMean_z = as.numeric(scale(TannerMean)),
+    aleq_c.L1_z = as.numeric(scale(aleq_c.L1)), # L1 total stress
+    aleq_c.L2_z = as.numeric(scale(aleq_c.L2)), # L2 total stress
+    aleqNonInt_c.L1_z = as.numeric(scale(aleqNonInt_c.L1)), # L1 non-interpersonal stress
+    aleqNonInt_c.L2_z = as.numeric(scale(aleqNonInt_c.L2)), # L2 non-interpersonal stress 
+    aleqInt_c.L1_z = as.numeric(scale(aleqInt_c.L1)), # L1 interpersonal stress
+    aleqInt_c.L2_z = as.numeric(scale(aleqInt_c.L2)), # L2 interpersonal stress
+    visit_num_z = as.numeric(scale(visitN)),
+    masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
+    masc_c_social_z = as.numeric(scale(masqsocial_c)), # social anxiety
+    mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
+    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
+    shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia    
+    AntIns_l_rawdiff_z = as.numeric(scale(AntIns_l_rawdiff)),
+    AntIns_r_rawdiff_z = as.numeric(scale(AntIns_r_rawdiff)),    
+    AntIns_avg_rawdiff_z = as.numeric(scale(AntIns_avg_rawdiff)),  
+    dACC_rawdiff_z = as.numeric(scale(dACC_rawdiff)),        
+    AntIns_l_rawchange_z = as.numeric(scale(AntIns_l_rawchange)),
+    AntIns_r_rawchange_z = as.numeric(scale(AntIns_r_rawchange)),    
+    AntIns_avg_rawchange_z = as.numeric(scale(AntIns_avg_rawchange)),  
+    dACC_rawchange_z = as.numeric(scale(dACC_rawchange))  
+  )
+
+contrasts(pad_and_rois_merge_LOSS_z$Group) = contr.treatment(2, base = 2)
+contrasts(pad_and_rois_merge_LOSS_z$Sex) = contr.treatment(2, base = 2)
+```
+
+```{r}
+set_theme(
+  base = theme_bw()
+)
+```
+
+# Does brain pre-post stress in the win condition correlate with anxiety severity 
+
+####  between-person DF
+
+```{r}
+pad_and_rois_merge_WIN_z_l2 <-
+  pad_and_rois_merge_WIN_z %>%
+  dplyr::select(-ends_with(c(".L1", ".L1z"))) %>%
+  dplyr::group_by(subID) %>%
+  dplyr::mutate(
+    mean_masc = mean(masc_c_total, na.rm = TRUE)
+  ) %>%
+  filter(visitN == 0) 
+
+library(interactions)
+```
+
+### NAcc pre-post-stress win
+```{r}
+
+# NAcc_l x within-person stress
+mlm_NAcc_l_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*NAcc_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_NAcc_l_win_prepost_z) # CI overlaps zero
+
+# NAcc_r x within-person stress
+mlm_NAcc_r_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*NAcc_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_NAcc_r_win_prepost_z) # No interaction
+
+```
+> No interaction by stress for NAcc
+
+
+### Caudate pre-post-stress win
+```{r}
+# caudate_l x within-person stress 
+mlm_caudate_l_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*caudate_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_caudate_l_win_prepost_z) # no interaction 
+
+# caudate_r x within-person stress
+mlm_caudate_r_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+       Sex + aleq_c.L2_z +  aleq_c.L1_z*caudate_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_caudate_r_win_prepost_z) # no interaction
+```
+
+> No interaction by stress for caudate
+
+### Putamen pre-post-stress win
+```{r}
+# putamen_l x within-person stress
+mlm_putamen_l_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*putamen_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_putamen_l_win_prepost_z) # no interaction
+
+# putamen_r x within-person stress
+mlm_putamen_r_win_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex  + aleq_c.L2_z +  aleq_c.L1_z*putamen_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(mlm_putamen_r_win_prepost_z) # no interaction  
+
+```
+
+> No interaction by stress for caudate
+
+# Does brain pre-post stress in the loss condition correlate with anxiety severity 
+
+#### For between-person assoications
+
+```{r}
+pad_and_rois_merge_LOSS_z_l2 <-
+  pad_and_rois_merge_LOSS_z %>%
+  dplyr::select(-ends_with(c(".L1", ".L1z"))) %>%
+  dplyr::group_by(subID) %>%
+  dplyr::mutate(
+    mean_masc = mean(masc_c_total, na.rm = TRUE)
+  ) %>%
+  filter(visitN == 0) 
+```
+
+### dACC pre-post-stress loss
+> No missing voxels in the dACC
+
+```{r}
+# dACC x within-person stress
+mlm_dacc_loss_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z * dACC_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_dacc_loss_prepost_z) # aleq_c.L1_z:dACC_prepost_resLOSS 
+
+hist(pad_and_rois_merge_LOSS_z$dACC_prepost_resLOSS)
+plot_model(mlm_dacc_loss_prepost_z, type = "diag") # okay
+check_model(mlm_dacc_loss_prepost_z) # no outliers
+check_outliers(mlm_dacc_loss_prepost_z)
+mlm_dacc_loss_prepost <- 
+  lmer(
+    masc_c_total ~ 
+      Sex  + aleq_c.L2 +  aleq_c.L1*dACC_prepost_resLOSS  +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+sjPlot::plot_model(mlm_dacc_loss_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
+sim_slopes(mlm_dacc_loss_prepost_z, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
+
+####### Exploratory PRE vs POST for dACC ########
+exp_dacc_pre <-  lmer(masc_c_total_z ~ Sex + aleq_c.L2_z +  aleq_c.L1_z*dACC.pre_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
+summary(exp_dacc_pre)
+exp_dacc_post <- lmer(masc_c_total_z ~ Sex + aleq_c.L2_z + dACC.pre_z + aleq_c.L1_z*dACC.post_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
+summary(exp_dacc_post)
+
+
+####### Exploratory adjusting for longitudinal MFQ and SHAPS ####### 
+mlm_dacc_loss_prepost_z_mfq <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z * dACC_prepost_resLOSS  + mafq_c_w_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_dacc_loss_prepost_z_mfq) # interaction holds 
+
+
+mlm_dacc_loss_prepost_mfq <- 
+  lmer(
+    masc_c_total ~ 
+      Sex + aleq_c.L2 +  aleq_c.L1 * dACC_prepost_resLOSS  + mafq_c_w +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+# title: "dACC Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety"
+sjPlot::plot_model(mlm_dacc_loss_prepost_mfq, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "", legend.title ="Residualized dACC \n Post-Pre Acute Stress")
+save_plot("dACCxStress-Anxiety.png", fig = ggplot2::last_plot(), width = 12, height = 8, dpi = 300, theme = ggplot2::theme_get(), label.color = "black", label.size = 2.4, axis.textsize = 0.8, axis.titlesize = 0.75, legend.textsize = 0.6, legend.titlesize = 0.65, legend.itemsize = 0.5)
+
+sim_slopes(mlm_dacc_loss_prepost_z_mfq, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
+check_outliers(mlm_dacc_loss_prepost_z_mfq)
+
+
+mlm_dacc_loss_prepost_z_shaps <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z * dACC_prepost_resLOSS  + shaps_c_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_dacc_loss_prepost_z_shaps) # interaction holds 
+
+mlm_dacc_loss_prepost_shaps <- 
+  lmer(
+    masc_c_total ~ 
+      Sex + aleq_c.L2 +  aleq_c.L1 * dACC_prepost_resLOSS  + shaps_c +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+
+sjPlot::plot_model(mlm_dacc_loss_prepost_shaps, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd", title = "dACC Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized dACC \n Post-Pre Acute Stress")
+sim_slopes(mlm_dacc_loss_prepost_z_shaps, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
+check_outliers(mlm_dacc_loss_prepost_z_shaps)
+```
+
+# Table dACC
+```{r}
+sjPlot::tab_model(
+  mlm_dacc_loss_prepost_z, 
+  mlm_dacc_loss_prepost_z_mfq,
+  mlm_dacc_loss_prepost_z_shaps,
+  bootstrap = TRUE,
+  iterations = 1000, 
+  dv.labels = c("Anxiety Severity", "Anxiety Severity", "Anxiety Severity"), 
+  seed = 1234,
+  pred.labels = 
+    c("Intercept",
+      "Sex [F]",
+      "Between-person Stress", 
+      "Within-person Stress",
+      "dACC",
+      "Within-Person Stress* dACC",
+      "Depression",
+      "Anhedonia"
+      ),
+  file = "dACC_Main_Anxiety.doc")
+```
+
+### AntIns pre-post-stress loss
+```{r}
+mlm_antins_l_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*AntIns_l_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_antins_l_prepost_z) #  No interaction   
+
+mlm_antins_r_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z * AntIns_r_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_antins_r_prepost_z)
+
+hist(pad_and_rois_merge_LOSS_z$AntIns_r_prepost_resLOSS)
+plot_model(mlm_antins_r_prepost_z, type = "diag") # okay
+check_model(mlm_antins_r_prepost_z)
+check_outliers(mlm_antins_r_prepost_z)
+
+mlm_antins_r_prepost <- 
+  lmer(
+    masc_c_total ~ 
+      Sex  + aleq_c.L2 +  aleq_c.L1*AntIns_r_prepost_resLOSS  +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+sjPlot::plot_model(mlm_antins_r_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
+sim_slopes(mlm_antins_r_prepost_z, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
+
+
+####### Exploratory PRE vs POST for R Ant Ins ########
+exp_antins_r_pre <-  lmer(masc_c_total_z ~ Sex + aleq_c.L2_z +  aleq_c.L1_z*AntIns_r.pre_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
+summary(exp_antins_r_pre)
+exp_antins_r_post <- lmer(masc_c_total_z ~ Sex + aleq_c.L2_z + AntIns_r.pre_z + aleq_c.L1_z*AntIns_r.post_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
+summary(exp_antins_r_post)
+
+
+####### Exploratory adjusting for longitudinal MFQ and SHAPS ####### 
+mlm_antins_r_prepost_z_mfq <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*AntIns_r_prepost_resLOSS  + mafq_c_w_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_antins_r_prepost_z_mfq) # interaction holds 
+
+
+mlm_antins_r_prepost_mfq <- 
+  lmer(
+    masc_c_total ~ 
+      Sex + aleq_c.L2 +  aleq_c.L1*AntIns_r_prepost_resLOSS  + mafq_c_w +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+sjPlot::plot_model(mlm_antins_r_prepost_mfq, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R Anterior Insula Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized R Ant Ins \n Post-Pre Acute Stress")
+sim_slopes(mlm_antins_r_prepost_z_mfq, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
+check_outliers(mlm_antins_r_prepost_z_mfq)
+
+mlm_antins_r_prepost_z_shaps <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z*AntIns_r_prepost_resLOSS + shaps_c_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(mlm_antins_r_prepost_z_shaps) # interaction holds 
+
+mlm_antins_r_prepost_shaps <- 
+  lmer(
+    masc_c_total ~ 
+      Sex + aleq_c.L2 +  aleq_c.L1*AntIns_r_prepost_resLOSS + shaps_c +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+sjPlot::plot_model(mlm_antins_r_prepost_shaps, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R Anterior Insula Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized R Ant Ins \n Post-Pre Acute Stress")
+sim_slopes(mlm_antins_r_prepost_z_shaps, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
+check_outliers(mlm_antins_r_prepost_z_shaps)
+```
+
+# Table R Ant Ins
+```{r}
+sjPlot::tab_model(
+  mlm_antins_r_prepost_z, 
+  mlm_antins_r_prepost_z_mfq,
+  mlm_antins_r_prepost_z_shaps,
+  bootstrap = TRUE,
+  iterations = 1000, 
+  dv.labels = c("Anxiety Severity", "Anxiety Severity", "Anxiety Severity"), 
+  seed = 1234,
+  pred.labels = 
+    c("Intercept",
+      "Sex [F]",
+      "Between-person Stress", 
+      "Within-person Stress",
+      "R Anterior Insula",
+      "Within-Person Stress* R Anterior Insula",
+      "Depression",
+      "Anhedonia"
+      ),
+  file = "RAntIns_Main_Anxiety.doc")
+```
+
+
+#### MC CORRECTION FOR LOSS
+
+```{r}
+# dACC, l Ant Ins, r Ant Ins
+ploss <- c(0.008, 0.310, 0.002)
+p.adjust(ploss, method = "fdr", n = length(ploss))
+
+### with that one participant removed
+# dACC, l Ant Ins, r Ant Ins
+ploss_rem <- c(0.016, 0.576, 0.008)
+p.adjust(ploss_rem, method = "fdr", n = length(ploss_rem))
+```
+
+# Null Win Model Tables
+```{r}
+sjPlot::tab_model(
+  mlm_NAcc_l_win_prepost_z, 
+  mlm_NAcc_r_win_prepost_z,
+  mlm_caudate_l_win_prepost_z,
+  mlm_caudate_r_win_prepost_z,
+  mlm_putamen_l_win_prepost_z,
+  mlm_putamen_r_win_prepost_z,
+  bootstrap = TRUE,
+  iterations = 1000, 
+  dv.labels = c("Anxiety Severity", "Anxiety Severity", "Anxiety Severity", "Anxiety Severity", "Anxiety Severity", "Anxiety Severity"), 
+  seed = 1234,
+  pred.labels = 
+    c("Intercept",
+      "Sex [F]",
+      "Between-person Stress", 
+      "Within-person Stress",
+      "L NAcc",
+      "Within-Person Stress* L NAcc",
+      "R NAcc",
+      "Within-Person Stress* R NAcc",
+      "L Caudate",
+      "Within-Person Stress* L Caudate",     
+      "R Caudate",
+      "Within-Person Stress* R Caudate",
+      "L Putamen",
+      "Within-Person Stress* L Putamen",  
+      "R Putamen",
+      "Within-Person Stress* R Putamen"          
+      ),
+  file = "Anxiety_NullResults_Win.doc")
+```
+
+# Null Loss Model Tables
+```{r}
+sjPlot::tab_model(
+  mlm_antins_l_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  dv.labels = c("Anxiety Severity"), 
+  seed = 1234,
+  pred.labels = 
+    c("Intercept",
+      "Sex [F]",
+      "Between-person Stress", 
+      "Within-person Stress",
+      "L Anterior Insula",
+      "Within-Person Stress* L Anterior Insula"
+      ),
+  file = "Anxiety_NullResults_Loss.doc")
+```
+

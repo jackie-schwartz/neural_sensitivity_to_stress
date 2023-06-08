@@ -1,0 +1,1203 @@
+---
+title: "2_Analysis_brain_change"
+author: "Jackie Kirshenbaum"
+date: "`r format(Sys.Date(), '%B %e %Y')`"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+---
+
+```{r}
+options(scipen = 999)
+```
+
+# Libraries 
+
+```{r, libraries, message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(forcats)
+library(DescTools)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(robustHD)
+library(qwraps2)
+library(knitr)
+library(lme4)
+```
+
+# Read in Data
+
+```{r, filepaths, message=FALSE}
+rois_pad_fp <- "~/Jackie/rois_and_pad_usable.csv"
+rois_pad <- 
+  read_csv(rois_pad_fp)
+```
+
+
+__FU Assessments__  
+_Mood and Feelings Questionnaire (MAFQ)_  
+>> assesses depressive sx severity over 2 weeks
+_Snaith-Hamilton Pleasure Scale (SHAPS)_  
+>> sensitivity analysis to anhedonia
+_Adolescent Life Events Questionnaire (ALEQ)_  
+>> interpersonal and non-interpersonal stress subscales  
+
+1M = _1  
+3M = _2  
+6M = _3  
+9M = _4  
+12M = _5  
+15M = _6  
+18M = _7  
+21M = _8  
+24M = _9  
+
+## Computing change score
+
+```{r}
+rois_change <-
+  rois_pad %>%
+  mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+  ) %>%
+  dplyr::group_by(condition) %>%
+  dplyr::mutate(
+    # averaging l and r pre and l and r post
+    AntIns_avg.pre = (AntIns_l.pre + AntIns_r.pre)/2,
+    AntIns_avg.post = (AntIns_l.post + AntIns_r.post)/2,
+    NAcc_avg.pre = (NAcc_l.pre + NAcc_r.pre)/2,
+    NAcc_avg.post = (NAcc_l.post + NAcc_r.post)/2,
+    caudate_avg.pre = (caudate_l.pre + caudate_r.pre)/2,
+    caudate_avg.post = (caudate_l.post + caudate_r.post)/2,
+    putamen_avg.pre = (putamen_l.pre + putamen_r.pre)/2,
+    putamen_avg.post = (putamen_l.post + putamen_r.post)/2,
+    # Ant Ins Raw Diff
+    AntIns_l_rawdiff = AntIns_l.post - AntIns_l.pre,
+    AntIns_r_rawdiff = AntIns_r.post - AntIns_r.pre,
+    AntIns_avg_rawdiff = AntIns_avg.post - AntIns_avg.pre,
+    # Ant Ins Raw Change
+    AntIns_l_rawchange = AntIns_l_rawdiff/AntIns_l.pre,     
+    AntIns_r_rawchange = AntIns_r_rawdiff/AntIns_r.pre,  
+    AntIns_avg_rawchange = AntIns_avg_rawdiff/AntIns_avg.pre,    
+    # dACC Raw Diff
+    dACC_rawdiff = dACC.post - dACC.pre,
+    # dACC Raw Change
+    dACC_rawchange = dACC_rawdiff/dACC.pre,
+    # NAcc Raw Diff
+    NAcc_l_rawdiff = NAcc_l.post - NAcc_l.pre,
+    NAcc_r_rawdiff = NAcc_r.post - NAcc_r.pre,
+    NAcc_avg_rawdiff = NAcc_avg.post - NAcc_avg.pre,
+    # NAcc Raw Change
+    NAcc_l_rawchange = NAcc_l_rawdiff/NAcc_l.pre,
+    NAcc_r_rawchange = NAcc_r_rawdiff/NAcc_r.pre,
+    NAcc_avg_rawchange = NAcc_avg_rawdiff/NAcc_avg.pre,
+    # Caudate Raw Diff
+    caudate_l_rawdiff = caudate_l.post - caudate_l.pre,
+    caudate_r_rawdiff = caudate_r.post - caudate_r.pre,
+    caudate_avg_rawdiff = caudate_avg.post - caudate_avg.pre,
+    # Caudate Raw Change
+    caudate_l_rawchange = caudate_l_rawdiff/caudate_l.pre,
+    caudate_r_rawchange = caudate_r_rawdiff/caudate_r.pre,
+    caudate_avg_rawchange = caudate_avg_rawdiff/caudate_avg.pre,
+    # Putamen Raw Diff
+    putamen_l_rawdiff = putamen_l.post - putamen_l.pre,
+    putamen_r_rawdiff = putamen_r.post - putamen_r.pre,
+    putamen_avg_rawdiff = putamen_avg.post - putamen_avg.pre,
+    # Putamen Raw Change
+    putamen_l_rawchange = putamen_l_rawdiff/putamen_l.pre,
+    putamen_r_rawchange = putamen_r_rawdiff/putamen_r.pre,
+    putamen_avg_rawchange = putamen_avg_rawdiff/putamen_avg.pre
+    )
+
+rois_change2 <-
+  rois_change %>%
+  dplyr::mutate(
+    condition = factor(condition)
+  ) %>%
+  dplyr::group_by(condition) %>%
+  mutate(
+    NAcc_l.pre_z = as.numeric(scale(NAcc_l.pre)),
+    NAcc_l.post_z = as.numeric(scale(NAcc_l.post)),    
+    NAcc_r.pre_z = as.numeric(scale(NAcc_r.pre)),
+    NAcc_r.post_z = as.numeric(scale(NAcc_r.post)),      
+    NAcc_avg.pre_z = as.numeric(scale(NAcc_avg.pre)),
+    NAcc_avg.post_z = as.numeric(scale(NAcc_avg.post)),       
+    caudate_l.pre_z = as.numeric(scale(caudate_l.pre)),
+    caudate_l.post_z = as.numeric(scale(caudate_l.post)),    
+    caudate_r.pre_z = as.numeric(scale(caudate_r.pre)),
+    caudate_r.post_z = as.numeric(scale(caudate_r.post)),      
+    caudate_avg.pre_z = as.numeric(scale(caudate_avg.pre)),
+    caudate_avg.post_z = as.numeric(scale(caudate_avg.post)),   
+    putamen_l.pre_z = as.numeric(scale(putamen_l.pre)),
+    putamen_l.post_z = as.numeric(scale(putamen_l.post)),    
+    putamen_r.pre_z = as.numeric(scale(putamen_r.pre)),
+    putamen_r.post_z = as.numeric(scale(putamen_r.post)),      
+    putamen_avg.pre_z = as.numeric(scale(putamen_avg.pre)),
+    putamen_avg.post_z = as.numeric(scale(putamen_avg.post)),
+    AntIns_l.pre_z = as.numeric(scale(AntIns_l.pre)),
+    AntIns_l.post_z = as.numeric(scale(AntIns_l.post)),    
+    AntIns_r.pre_z = as.numeric(scale(AntIns_r.pre)),
+    AntIns_r.post_z = as.numeric(scale(AntIns_r.post)),      
+    AntIns_avg.pre_z = as.numeric(scale(AntIns_avg.pre)),
+    AntIns_avg.post_z = as.numeric(scale(AntIns_avg.post)),       
+    dACC.pre_z = as.numeric(scale(dACC.pre)),
+    dACC.post_z = as.numeric(scale(dACC.post))    
+  )
+
+rois_change2_LOSS <-
+  rois_change2 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, dACC.pre_z, dACC.post_z, AntIns_avg.pre_z, AntIns_avg.post_z, AntIns_l.pre_z, AntIns_l.post_z, AntIns_r.pre_z, AntIns_r.post_z)
+
+rois_change2_WIN <-
+  rois_change2 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_avg.pre_z, NAcc_avg.post_z, NAcc_l.pre_z, NAcc_l.post_z, NAcc_r.pre_z, NAcc_r.post_z,
+                caudate_avg.pre_z, caudate_avg.post_z, caudate_l.pre_z, caudate_l.post_z, caudate_r.pre_z, caudate_r.post_z,
+                putamen_avg.pre_z, putamen_avg.post_z, putamen_l.pre_z, putamen_l.post_z, putamen_r.pre_z, putamen_r.post_z)
+
+```
+
+## Creating residualized scores
+
+```{r}
+library(modelr)
+# dACC
+dACC_prepost_resLOSS <- lm(dACC.post_z ~ dACC.pre_z, data = rois_change2_LOSS)
+rois_change2_LOSS <-
+  rois_change2_LOSS %>% 
+  add_residuals(dACC_prepost_resLOSS, var = "dACC_prepost_resLOSS")
+
+# Anterior Insula R
+AntIns_r_prepost_resLOSS <- lm(AntIns_r.post_z ~ AntIns_r.pre_z, data = rois_change2_LOSS)
+
+rois_change2_LOSS <-
+  rois_change2_LOSS %>% 
+  add_residuals(AntIns_r_prepost_resLOSS, var = "AntIns_r_prepost_resLOSS")
+
+# Anterior Insula L
+AntIns_l_prepost_resLOSS <- lm(AntIns_l.post_z ~ AntIns_l.pre_z, data = rois_change2_LOSS)
+
+rois_change2_LOSS <-
+  rois_change2_LOSS %>% 
+  add_residuals(AntIns_l_prepost_resLOSS, var = "AntIns_l_prepost_resLOSS")
+
+# Anterior Insula Avg
+AntIns_avg_prepost_resLOSS <- lm(AntIns_avg.post_z ~ AntIns_avg.pre_z, data = rois_change2_LOSS)
+
+rois_change2_LOSS <-
+  rois_change2_LOSS %>% 
+  add_residuals(AntIns_avg_prepost_resLOSS, var = "AntIns_avg_prepost_resLOSS")
+
+# NAcc R
+NAcc_r_prepost_resWIN <- lm(NAcc_r.post_z ~ NAcc_r.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(NAcc_r_prepost_resWIN, var = "NAcc_r_prepost_resWIN")
+
+# NAcc L
+NAcc_l_prepost_resWIN <- lm(NAcc_l.post_z ~ NAcc_l.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(NAcc_l_prepost_resWIN, var = "NAcc_l_prepost_resWIN")
+
+# NAcc Avg
+NAcc_avg_prepost_resWIN <- lm(NAcc_avg.post_z ~ NAcc_avg.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(NAcc_avg_prepost_resWIN, var = "NAcc_avg_prepost_resWIN")
+
+# caudate R
+caudate_r_prepost_resWIN <- lm(caudate_r.post_z ~ caudate_r.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(caudate_r_prepost_resWIN, var = "caudate_r_prepost_resWIN")
+
+# caudate L
+caudate_l_prepost_resWIN <- lm(caudate_l.post_z ~ caudate_l.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(caudate_l_prepost_resWIN, var = "caudate_l_prepost_resWIN")
+
+# caudate Avg
+caudate_avg_prepost_resWIN <- lm(caudate_avg.post_z ~ caudate_avg.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(caudate_avg_prepost_resWIN, var = "caudate_avg_prepost_resWIN")
+
+# putamen R
+putamen_r_prepost_resWIN <- lm(putamen_r.post_z ~ putamen_r.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(putamen_r_prepost_resWIN, var = "putamen_r_prepost_resWIN")
+
+# putamen L
+putamen_l_prepost_resWIN <- lm(putamen_l.post_z ~ putamen_l.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(putamen_l_prepost_resWIN, var = "putamen_l_prepost_resWIN")
+
+# putamen Avg
+putamen_avg_prepost_resWIN <- lm(putamen_avg.post_z ~ putamen_avg.pre_z, data = rois_change2_WIN)
+
+rois_change2_WIN <-
+  rois_change2_WIN %>% 
+  add_residuals(putamen_avg_prepost_resWIN, var = "putamen_avg_prepost_resWIN")
+```
+
+### Merging back with rest of df
+```{r}
+rois_change2 <-
+  rois_change2 %>%
+  mutate(subID = factor(subID),
+         condition = factor(condition))
+rois_change2_WIN <-
+  rois_change2_WIN %>%
+  mutate(subID = factor(subID),
+         condition = factor(condition)) %>%
+  dplyr::select(subID, condition, ends_with("resWIN"))
+rois_change2_LOSS <-
+  rois_change2_LOSS %>%
+  mutate(subID = factor(subID),
+         condition = factor(condition)) %>%
+  dplyr::select(subID, condition, ends_with("resLOSS"))
+
+rois_change3 <-
+  left_join(
+    rois_change2,
+    rois_change2_LOSS,
+    by = c("subID", "condition")
+  ) %>%
+  mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+  )
+
+rois_change4 <-
+  left_join(
+    rois_change3,
+    rois_change2_WIN,
+    by = c("subID", "condition")
+  ) %>%
+  mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+  )
+```
+
+## Distribution of Change scores
+
+### Win Condition
+
+```{r}
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("change")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("diff")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("resWIN")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("change")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("diff")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+
+rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  pivot_longer(
+    cols = c(ends_with("resWIN")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+```
+
+### Loss Condition
+
+```{r}
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("change")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("diff")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("resLOSS")),
+    names_to = "rois"
+  ) %>%
+  ggplot(
+    aes(x = value)
+  ) +
+  geom_boxplot() +
+  facet_wrap(~rois)
+
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("change")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("diff")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+
+rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  pivot_longer(
+    cols = c(ends_with("resLOSS")),
+    names_to = "rois"
+  ) %>%
+  group_by(rois) %>%
+  summarise(min = min(value),
+            max = max(value))
+```
+
+> wide distribution of change score values due to negative numbers close to zero; thus, using residualized score
+
+# Data Viz
+
+_By Condition and by Pre vs Post_
+
+### WIN CONDITION ###  
+caudate, NAcc, putamen
+
+```{r}
+rois_win_prepost_viz <- 
+  rois_change2 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(-starts_with(c("AntIns", "dACC"))) %>%
+  dplyr::select("subID", ends_with(c("pre_z", "post_z"))) %>%
+  pivot_longer(
+    cols = c(ends_with("pre_z"), ends_with("post_z")),
+    names_to = "rois"
+  ) %>%
+  mutate(
+    across(subID:rois, factor),
+    value = as.numeric(value)
+    )%>%
+  separate(., col = "rois", into = c("roi", "timept"), sep = "([.])") %>%
+  mutate(roi = factor(roi))
+  # spread(roi, value)
+```
+
+```{r}
+
+rois_win_prepost_viz$timept = fct_relevel(rois_win_prepost_viz$timept, "pre_z", "post_z")
+
+rois_win_prepost_viz %>%
+  dplyr::mutate(
+    roi = dplyr::recode(roi, "caudate_l" = "L Caudate", "caudate_r" = "R Caudate",  "NAcc_l" = "L NAcc", "NAcc_r" = "R NAcc", "putamen_l" = "L Putamen", "putamen_r" = "R Putamen") 
+    ) %>%
+  dplyr::mutate(
+    timeptname = recode_factor(timept, pre_z = "Pre-Stress", post_z = "Post-Stress")
+    ) %>%
+  filter(!grepl('_avg', roi)) %>%
+  ggplot(
+    aes(x=timeptname, y=value, fill=timeptname)
+    ) +
+  geom_boxplot(alpha = .5) +
+  facet_wrap(~roi) +
+  theme_classic() +
+  labs(
+    x = "Run",
+    y = "Beta Value",
+    title = "Distribution Activation Based on ROI, and Pre vs. Post Stress for the Win Condition"
+  ) + 
+  theme(
+    axis.text = element_text(size = 10, angle = 90, hjust = 1),
+    axis.title = element_text(size = 10),
+    title = element_text(size = 10),
+    plot.title = element_text(size = 10)
+  ) +
+  scale_fill_hue(h = c(60,280))
+ggsave("prepost_z_win.png", width = 7, height = 7)
+
+
+## Spaghetti Plots
+rois_win_prepost_viz <-
+  rois_win_prepost_viz %>%
+  dplyr::mutate(
+    timeptnum = 
+      ifelse(timept == "pre_z", 1, 2)
+  )
+
+rois_win_prepost_viz %>%
+  dplyr::mutate(
+    roi = dplyr::recode(roi, "caudate_l" = "L Caudate", "caudate_r" = "R Caudate",  "NAcc_l" = "L NAcc", "NAcc_r" = "R NAcc", "putamen_l" = "L Putamen", "putamen_r" = "R Putamen")
+    ) %>%
+  filter(!grepl('_avg', roi)) %>%
+  ggplot(
+    aes(x=timeptnum, y=value, color = subID)
+    ) +
+  facet_wrap(~roi) +
+  geom_line(alpha = .5) +
+  theme_classic() +
+  labs(
+    x = "Run",
+    y = "Beta Value",
+    title = "Individual Activation Pre to Post Stress for the Win Condition"
+  ) + 
+  theme(
+    axis.text = element_text(size = 10, angle = 90, hjust = 1),
+    axis.title = element_text(size = 10),
+    title = element_text(size = 10),
+    plot.title = element_text(size = 10)
+  ) +
+  theme(legend.position="none")
+ggsave("ind_prepost_z_win.png", width = 7, height = 7)
+```
+
+### LOSS CONDITION ###  
+AntIns, dACC
+
+```{r}
+rois_loss_prepost_viz <- 
+  rois_change2 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(-starts_with(c("NAcc", "caudate", "putamen"))) %>%
+  dplyr::select("subID", ends_with(c("pre_z", "post_z"))) %>%
+  pivot_longer(
+    cols = c(ends_with("pre_z"), ends_with("post_z")),
+    names_to = "rois"
+  ) %>%
+  mutate(
+    across(subID:rois, factor),
+    value = as.numeric(value)
+    )%>%
+  separate(., col = "rois", into = c("roi", "timept"), sep = "([.])") %>%
+  mutate(roi = factor(roi))
+  # spread(roi, value)
+```
+
+```{r}
+
+rois_loss_prepost_viz$timept = fct_relevel(rois_loss_prepost_viz$timept, "pre_z", "post_z")
+
+rois_loss_prepost_viz %>%
+  dplyr::mutate(
+    roi = dplyr::recode(roi, "AntIns_l" = "L Ant Insula", "AntIns_r" = "R Ant Insula")
+    ) %>%
+  dplyr::mutate(
+    timeptname = recode_factor(timept, pre_z = "Pre-Stress", post_z = "Post-Stress")
+    ) %>%
+  filter(!grepl('_avg', roi)) %>%
+  ggplot(
+    aes(x=timeptname, y=value, fill=timeptname)
+    ) +
+  geom_boxplot(alpha = .5) +
+  facet_wrap(~roi) +
+  theme_classic() +
+  labs(
+    x = "Run",
+    y = "Beta Value",
+    title = "Distribution Activation Based on ROI, and Pre vs. Post Stress for the Loss Condition"
+  ) + 
+  theme(
+    axis.text = element_text(size = 10, angle = 90, hjust = 1),
+    axis.title = element_text(size = 10),
+    title = element_text(size = 10),
+    plot.title = element_text(size = 10)
+  ) +
+  scale_fill_hue(h = c(60,280))
+ggsave("prepost_z_loss.png", width = 7, height = 5)
+
+
+## Spaghetti Plots
+rois_loss_prepost_viz <-
+  rois_loss_prepost_viz %>%
+  dplyr::mutate(
+    timeptnum = 
+      ifelse(timept == "pre_z", 1, 2)
+  )
+
+rois_loss_prepost_viz %>%
+  dplyr::mutate(
+    roi = dplyr::recode(roi, "AntIns_l" = "L Ant Insula", "AntIns_r" = "R Ant Insula")
+    ) %>%
+  filter(!grepl('_avg', roi)) %>%
+  ggplot(
+    aes(x=timeptnum, y=value, color = subID)
+    ) +
+  facet_wrap(~roi) +
+  geom_line(alpha = .5) +
+  theme_classic() +
+  labs(
+    x = "Run",
+    y = "Beta Value",
+    title = "Individual Activation Pre to Post Stress for the Loss Condition"
+  ) + 
+  theme(
+    axis.text = element_text(size = 10, angle = 90, hjust = 1),
+    axis.title = element_text(size = 10),
+    title = element_text(size = 10),
+    plot.title = element_text(size = 10)
+  ) +
+  theme(legend.position="none")
+ggsave("ind_prepost_z_loss.png", width = 7, height = 5)
+```
+
+### T-tests pre and post
+
+```{r}
+# WIN
+
+# l NACC
+naccl <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "NAcc_l") %>%
+  dplyr::mutate(timept = as.factor(timept)) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(subID, timept, value)
+
+t.test(value ~ timept, data = naccl)
+
+# r NACC
+naccr <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "NAcc_r") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = naccr)
+
+# l putamen
+putamen_l <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "putamen_l") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = putamen_l)
+
+# r putamen
+putamen_r <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "putamen_r") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = putamen_r)
+
+# l caudate
+caudate_l <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "caudate_l") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = caudate_l)
+
+# r caudate
+caudate_r <-
+  rois_win_prepost_viz  %>%
+  filter(roi == "caudate_r") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = caudate_r)
+```
+
+```{r}
+# LOSS
+
+# l Ant Ins
+antinsl <-
+  rois_loss_prepost_viz  %>%
+  filter(roi == "AntIns_l") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = antinsl)
+
+# r Ant Ins
+antinsr <-
+  rois_loss_prepost_viz  %>%
+  filter(roi == "AntIns_r") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = antinsr)
+
+# dACC 
+dacc <-
+  rois_loss_prepost_viz  %>%
+  filter(roi == "dACC") %>%
+  dplyr::mutate(timept = as.factor(timept))
+
+t.test(value ~ timept, data = dacc)
+
+
+```
+
+# Identifying Outliers of Change, Difference, and Residualized Scores
+
+
+## Anterior Insula
+
+```{r}
+# Average Change
+AntIns_avg_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_avg_rawchange) %>%
+  identify_outliers(AntIns_avg_rawchange)  # 8 observations in LOSS (4 are extreme)
+
+AntIns_avg_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_avg_rawdiff) %>%
+  identify_outliers(AntIns_avg_rawdiff)  # 1 observations in LOSS (0 extreme)
+
+AntIns_avg_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_avg_prepost_resLOSS) %>%
+  identify_outliers(AntIns_avg_prepost_resLOSS)  # 3 observations in LOSS (0 extreme)
+
+# L
+
+AntIns_l_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_l_rawchange) %>%
+  identify_outliers(AntIns_l_rawchange)  # 8 observations in LOSS (4 are extreme)
+
+AntIns_l_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_l_rawdiff) %>%
+  identify_outliers(AntIns_l_rawdiff)  # 1 observations in LOSS (0 extreme)
+
+AntIns_l_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_l_prepost_resLOSS) %>%
+  identify_outliers(AntIns_l_prepost_resLOSS)  # 1 observations in LOSS (0 extreme)
+
+# R
+
+AntIns_r_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_r_rawchange) %>%
+  identify_outliers(AntIns_r_rawchange)  # 5 observations in LOSS (3 are extreme)
+
+AntIns_r_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_r_rawdiff) %>%
+  identify_outliers(AntIns_r_rawdiff)  # 0 observations in LOSS 
+
+AntIns_r_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, AntIns_r_prepost_resLOSS) %>%
+  identify_outliers(AntIns_r_prepost_resLOSS)  # 1 observations in LOSS (0 extreme)
+```
+
+## Dorsal Anterior Cingulate
+
+```{r}
+dACC_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, dACC_rawchange) %>%
+  identify_outliers(dACC_rawchange)  # 14 observations in LOSS (7 are extreme)
+
+dACC_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, dACC_rawdiff) %>%
+  identify_outliers(dACC_rawdiff)  # 4 observations in LOSS (0 extreme)
+
+dACC_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(subID, condition, dACC_prepost_resLOSS) %>%
+  identify_outliers(dACC_prepost_resLOSS)  # 0 observations in LOSS 
+
+```
+
+
+## Nucleus Accumbens
+
+```{r}
+# Average Change
+NAcc_avg_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_avg_rawchange) %>%
+  identify_outliers(NAcc_avg_rawchange)  # 10 observations in WIN (6 are extreme)
+
+NAcc_avg_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_avg_rawdiff) %>%
+  identify_outliers(NAcc_avg_rawdiff)  # 0 observations in WIN 
+
+NAcc_avg_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_avg_prepost_resWIN) %>%
+  identify_outliers(NAcc_avg_prepost_resWIN)  # 3 observations in WIN (0 extreme)
+
+# L
+
+NAcc_l_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_l_rawchange) %>%
+  identify_outliers(NAcc_l_rawchange)  # 11 observations in WIN (5 are extreme)
+
+NAcc_l_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_l_rawdiff) %>%
+  identify_outliers(NAcc_l_rawdiff)  # 1 observations in WIN (0 extreme)
+
+NAcc_l_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_l_prepost_resWIN) %>%
+  identify_outliers(NAcc_l_prepost_resWIN)  # 2 observations in WIN (0 extreme)
+
+# R
+
+NAcc_r_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_r_rawchange) %>%
+  identify_outliers(NAcc_r_rawchange)  # 15 observations in WIN (9 are extreme)
+
+NAcc_r_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_r_rawdiff) %>%
+  identify_outliers(NAcc_r_rawdiff)  # 2 observations in WIN (0 are extreme)
+
+NAcc_r_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, NAcc_r_prepost_resWIN) %>%
+  identify_outliers(NAcc_r_prepost_resWIN)  # 5 observations in WIN (0 extreme)
+```
+
+## Caudate
+
+```{r}
+# Average change
+caudate_avg_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_avg_rawchange) %>%
+  identify_outliers(caudate_avg_rawchange)  # 10 observations in WIN (3 are extreme)
+
+caudate_avg_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_avg_rawdiff) %>%
+  identify_outliers(caudate_avg_rawdiff)  # 2 observations in WIN (0 extreme)
+
+caudate_avg_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_avg_prepost_resWIN) %>%
+  identify_outliers(caudate_avg_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+
+# L
+
+caudate_l_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_l_rawchange) %>%
+  identify_outliers(caudate_l_rawchange)  # 5 observations in WIN (3 are extreme)
+
+caudate_l_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_l_rawdiff) %>%
+  identify_outliers(caudate_l_rawdiff)  # 1 observations in WIN (0 extreme)
+
+caudate_l_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_l_prepost_resWIN) %>%
+  identify_outliers(caudate_l_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+
+# R
+
+caudate_r_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_r_rawchange) %>%
+  identify_outliers(caudate_r_rawchange)  # 14 observations in WIN (11 are extreme)
+
+caudate_r_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_r_rawdiff) %>%
+  identify_outliers(caudate_r_rawdiff)  # 2 observations in WIN (0 are extreme)
+
+caudate_r_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, caudate_r_prepost_resWIN) %>%
+  identify_outliers(caudate_r_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+```
+
+## Putamen
+
+```{r}
+putamen_avg_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_avg_rawchange) %>%
+  identify_outliers(putamen_avg_rawchange)  # 10 observations in WIN (8 are extreme)
+
+putamen_avg_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_avg_rawdiff) %>%
+  identify_outliers(putamen_avg_rawdiff)  # 0 observations in WIN 
+
+putamen_avg_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_avg_prepost_resWIN) %>%
+  identify_outliers(putamen_avg_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+
+# L
+
+putamen_l_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_l_rawchange) %>%
+  identify_outliers(putamen_l_rawchange)  # 15 observations in WIN (9 are extreme)
+
+putamen_l_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_l_rawdiff) %>%
+  identify_outliers(putamen_l_rawdiff)  # 0 observations in WIN 
+
+putamen_l_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_l_prepost_resWIN) %>%
+  identify_outliers(putamen_l_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+
+# R
+
+putamen_r_outliers_change <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_r_rawchange) %>%
+  identify_outliers(putamen_r_rawchange)  # 15 observations in WIN (10 are extreme)
+
+putamen_r_outliers_diff <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_r_rawdiff) %>%
+  identify_outliers(putamen_r_rawdiff)  # 0 observations in WIN 
+
+putamen_r_outliers_res <-
+  rois_change4 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(subID, condition, putamen_r_prepost_resWIN) %>%
+  identify_outliers(putamen_r_prepost_resWIN)  # 1 observations in WIN (0 extreme)
+```
+
+## Merging with dataframe 
+
+```{r}
+rois_change_iding_outliers <-
+  rois_change4 %>%
+  dplyr::select(subID, condition, ends_with(".pre"), ends_with(".post"), ends_with(".pre_z"), ends_with(".post_z"), ends_with("rawdiff"), ends_with("rawchange"), ends_with("resWIN"), ends_with("resLOSS")) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+    )
+
+# AntIns avg (only extreme outliers)
+AntIns_avg_ext_out <-
+  AntIns_avg_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(AntIns_avg_is.extreme = is.extreme)
+
+# AntIns l (only extreme outliers)
+AntIns_l_ext_out <-
+  AntIns_l_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(AntIns_l_is.extreme = is.extreme)
+
+# AntIns r (only extreme outliers)
+AntIns_r_ext_out <-
+  AntIns_r_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(AntIns_r_is.extreme = is.extreme)
+
+# dACC (only extreme outliers)
+dACC_ext_out <-
+  dACC_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(dACC_is.extreme = is.extreme)
+
+# NAcc avg (only extreme outliers)
+NAcc_avg_ext_out <-
+  NAcc_avg_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(NAcc_avg_is.extreme = is.extreme)
+
+# NAcc l (only extreme outliers)
+NAcc_l_ext_out <-
+  NAcc_l_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(NAcc_l_is.extreme = is.extreme)
+
+# NAcc r (only extreme outliers)
+NAcc_r_ext_out <-
+  NAcc_r_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(NAcc_r_is.extreme = is.extreme)
+
+# caudate avg (only extreme outliers)
+caudate_avg_ext_out <-
+  caudate_avg_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(caudate_avg_is.extreme = is.extreme)
+
+# caudate l (only extreme outliers)
+caudate_l_ext_out <-
+  caudate_l_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(caudate_l_is.extreme = is.extreme)
+
+# caudate r (only extreme outliers)
+caudate_r_ext_out <-
+  caudate_r_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(caudate_r_is.extreme = is.extreme)
+
+# putamen avg (only extreme outliers)
+putamen_avg_ext_out <-
+  putamen_avg_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(putamen_avg_is.extreme = is.extreme)
+
+# putamen l (only extreme outliers)
+putamen_l_ext_out <-
+  putamen_l_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(putamen_l_is.extreme = is.extreme)
+
+# putamen r (only extreme outliers)
+putamen_r_ext_out <-
+  putamen_r_outliers_change %>%
+  dplyr::select(subID, condition, is.extreme) %>%
+  filter(is.extreme == TRUE) %>%
+  rename(putamen_r_is.extreme = is.extreme)
+
+
+rois_change_iding_outliers2 <-
+  left_join(
+    rois_change_iding_outliers,
+    AntIns_avg_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers2 <-
+  left_join(
+    rois_change_iding_outliers2,
+    AntIns_l_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers2 <-
+  left_join(
+    rois_change_iding_outliers2,
+    AntIns_r_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers3 <-
+  left_join(
+    rois_change_iding_outliers2,
+    dACC_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers4 <-
+  left_join(
+    rois_change_iding_outliers3,
+    NAcc_avg_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers4 <-
+  left_join(
+    rois_change_iding_outliers4,
+    NAcc_l_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers4 <-
+  left_join(
+    rois_change_iding_outliers4,
+    NAcc_r_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers5 <-
+  left_join(
+    rois_change_iding_outliers4,
+    caudate_avg_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers5 <-
+  left_join(
+    rois_change_iding_outliers5,
+    caudate_l_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers5 <-
+  left_join(
+    rois_change_iding_outliers5,
+    caudate_r_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers6 <-
+  left_join(
+    rois_change_iding_outliers5,
+    putamen_avg_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers6 <-
+  left_join(
+    rois_change_iding_outliers6,
+    putamen_r_ext_out,
+    by = c("subID", "condition")
+  )
+rois_change_iding_outliers6 <-
+  left_join(
+    rois_change_iding_outliers6,
+    putamen_l_ext_out,
+    by = c("subID", "condition")
+  )
+```
+
+## Splitting up by Condtion
+
+```{r}
+rois_change_LOSS <-
+  rois_change_iding_outliers6 %>%
+  filter(condition == "FB_LOSS") %>%
+  dplyr::select(-c(starts_with("NAcc"), starts_with("caudate"), starts_with("putamen")))
+
+rois_change_WIN <-
+  rois_change_iding_outliers6 %>%
+  filter(condition == "FB_WIN") %>%
+  dplyr::select(-c(starts_with("AntIns"), starts_with("dACC")))
+```
+
+
+# Write csvs
+
+```{r}
+rois_change_LOSS_fp <- "~/Jackie/rois_change_LOSS.csv"
+write_csv(rois_change_LOSS, rois_change_LOSS_fp)
+
+rois_change_WIN_fp <- "~/Jackie/rois_change_WIN.csv"
+write_csv(rois_change_WIN, rois_change_WIN_fp)
+```

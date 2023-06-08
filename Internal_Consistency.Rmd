@@ -1,0 +1,448 @@
+---
+title: "Internal_Consistency"
+author: "Jackie Kirshenbaum"
+date: "`r format(Sys.Date(), '%B %e %Y')`"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+---
+
+# Libraries
+
+```{r}
+library(tidyverse)
+library(ltm)
+```
+
+# Read in data
+```{r}
+df_fp <- "~/Jackie/pad_data_itemlevel_2023_03_24.Rda"
+load(df_fp)
+
+final_samp_df <- "~/Jackie/rois_and_pad_usable.csv"
+final_samp <- read_csv(final_samp_df) %>%
+  dplyr::select(subID) %>%
+  distinct() %>%
+  dplyr::mutate(
+    ID = str_remove_all(subID, "[sub-]")
+  ) %>%
+  dplyr::select(-subID) %>%
+  dplyr::mutate(
+    ID = factor(ID)
+  )
+```
+
+# Merge dfs
+
+```{r}
+df2 <-
+  left_join(
+    final_samp, clinicalC, by = "ID"
+  ) 
+```
+
+
+# SHAPS
+
+```{r}
+shaps <-
+  df2 %>%
+  dplyr::select(starts_with("shaps"))
+```
+
+```{r}
+# baseline
+shaps0 <-
+  shaps %>%
+  dplyr::select(ends_with(".0")) %>%
+  drop_na()
+cronbach.alpha(shaps0) # 0.849
+
+# v1
+shaps1 <-
+  shaps %>%
+  dplyr::select(ends_with(".1")) %>%
+  drop_na()
+cronbach.alpha(shaps1) # 0.91
+
+# v2
+shaps2 <-
+  shaps %>%
+  dplyr::select(ends_with(".2")) %>%
+  drop_na()
+cronbach.alpha(shaps2) # 0.873
+
+# v3
+shaps3 <-
+  shaps %>%
+  dplyr::select(ends_with(".3")) %>%
+  drop_na()
+cronbach.alpha(shaps3) # 0.854
+
+# v4
+shaps4 <-
+  shaps %>%
+  dplyr::select(ends_with(".4")) %>%
+  drop_na()
+cronbach.alpha(shaps4) # 0.864
+
+# v5
+shaps5 <-
+  shaps %>%
+  dplyr::select(ends_with(".5")) %>%
+  drop_na()
+cronbach.alpha(shaps5) # 0.908
+
+# v6
+shaps6 <-
+  shaps %>%
+  dplyr::select(ends_with(".6")) %>%
+  drop_na()
+cronbach.alpha(shaps6) # 0.917
+
+# v7
+shaps7 <-
+  shaps %>%
+  dplyr::select(ends_with(".7")) %>%
+  drop_na()
+cronbach.alpha(shaps7) # 0.908
+
+# v8
+shaps8 <-
+  shaps %>%
+  dplyr::select(ends_with(".8")) %>%
+  drop_na()
+cronbach.alpha(shaps8) # 0.851
+
+# v9
+shaps9 <-
+  shaps %>%
+  dplyr::select(ends_with(".9")) %>%
+  drop_na()
+cronbach.alpha(shaps9) # 0.882
+```
+
+
+# SHAPS
+
+```{r}
+shaps <-
+  df2 %>%
+  dplyr::select(starts_with("shaps"))
+```
+
+```{r}
+# baseline
+shaps0 <-
+  shaps %>%
+  dplyr::select(ends_with(".0")) %>%
+  drop_na()
+cronbach.alpha(shaps0) # 0.849
+
+# v1
+shaps1 <-
+  shaps %>%
+  dplyr::select(ends_with(".1")) %>%
+  drop_na()
+cronbach.alpha(shaps1) # 0.91
+
+# v2
+shaps2 <-
+  shaps %>%
+  dplyr::select(ends_with(".2")) %>%
+  drop_na()
+cronbach.alpha(shaps2) # 0.873
+
+# v3
+shaps3 <-
+  shaps %>%
+  dplyr::select(ends_with(".3")) %>%
+  drop_na()
+cronbach.alpha(shaps3) # 0.854
+
+# v4
+shaps4 <-
+  shaps %>%
+  dplyr::select(ends_with(".4")) %>%
+  drop_na()
+cronbach.alpha(shaps4) # 0.864
+
+# v5
+shaps5 <-
+  shaps %>%
+  dplyr::select(ends_with(".5")) %>%
+  drop_na()
+cronbach.alpha(shaps5) # 0.908
+
+# v6
+shaps6 <-
+  shaps %>%
+  dplyr::select(ends_with(".6")) %>%
+  drop_na()
+cronbach.alpha(shaps6) # 0.917
+
+# v7
+shaps7 <-
+  shaps %>%
+  dplyr::select(ends_with(".7")) %>%
+  drop_na()
+cronbach.alpha(shaps7) # 0.908
+
+# v8
+shaps8 <-
+  shaps %>%
+  dplyr::select(ends_with(".8")) %>%
+  drop_na()
+cronbach.alpha(shaps8) # 0.851
+
+# v9
+shaps9 <-
+  shaps %>%
+  dplyr::select(ends_with(".9")) %>%
+  drop_na()
+cronbach.alpha(shaps9) # 0.882
+```
+
+# SHAPS
+
+```{r}
+shaps <-
+  df2 %>%
+  dplyr::select(starts_with("shaps"))
+```
+
+```{r}
+# baseline
+shaps0 <-
+  shaps %>%
+  dplyr::select(ends_with(".0")) %>%
+  drop_na()
+cronbach.alpha(shaps0) # 0.849
+
+# v1
+shaps1 <-
+  shaps %>%
+  dplyr::select(ends_with(".1")) %>%
+  drop_na()
+cronbach.alpha(shaps1) # 0.91
+
+# v2
+shaps2 <-
+  shaps %>%
+  dplyr::select(ends_with(".2")) %>%
+  drop_na()
+cronbach.alpha(shaps2) # 0.873
+
+# v3
+shaps3 <-
+  shaps %>%
+  dplyr::select(ends_with(".3")) %>%
+  drop_na()
+cronbach.alpha(shaps3) # 0.854
+
+# v4
+shaps4 <-
+  shaps %>%
+  dplyr::select(ends_with(".4")) %>%
+  drop_na()
+cronbach.alpha(shaps4) # 0.864
+
+# v5
+shaps5 <-
+  shaps %>%
+  dplyr::select(ends_with(".5")) %>%
+  drop_na()
+cronbach.alpha(shaps5) # 0.908
+
+# v6
+shaps6 <-
+  shaps %>%
+  dplyr::select(ends_with(".6")) %>%
+  drop_na()
+cronbach.alpha(shaps6) # 0.917
+
+# v7
+shaps7 <-
+  shaps %>%
+  dplyr::select(ends_with(".7")) %>%
+  drop_na()
+cronbach.alpha(shaps7) # 0.908
+
+# v8
+shaps8 <-
+  shaps %>%
+  dplyr::select(ends_with(".8")) %>%
+  drop_na()
+cronbach.alpha(shaps8) # 0.851
+
+# v9
+shaps9 <-
+  shaps %>%
+  dplyr::select(ends_with(".9")) %>%
+  drop_na()
+cronbach.alpha(shaps9) # 0.882
+```
+
+
+# MFQ
+
+```{r}
+mafq <-
+  df2 %>%
+  dplyr::select(starts_with("mafq"))
+```
+
+```{r}
+# baseline
+mafq0 <-
+  mafq %>%
+  dplyr::select(ends_with(".0")) %>%
+  drop_na()
+cronbach.alpha(mafq0) # 0.901
+
+# v1
+mafq1 <-
+  mafq %>%
+  dplyr::select(ends_with(".1")) %>%
+  drop_na()
+cronbach.alpha(mafq1) # 0.904
+
+# v2
+mafq2 <-
+  mafq %>%
+  dplyr::select(ends_with(".2")) %>%
+  drop_na()
+cronbach.alpha(mafq2) # 0.872
+
+# v3
+mafq3 <-
+  mafq %>%
+  dplyr::select(ends_with(".3")) %>%
+  drop_na()
+cronbach.alpha(mafq3) # 0.924
+
+# v4
+mafq4 <-
+  mafq %>%
+  dplyr::select(ends_with(".4")) %>%
+  drop_na()
+cronbach.alpha(mafq4) # 0.933
+
+# v5
+mafq5 <-
+  mafq %>%
+  dplyr::select(ends_with(".5")) %>%
+  drop_na()
+cronbach.alpha(mafq5) # 0.86
+
+# v6
+mafq6 <-
+  mafq %>%
+  dplyr::select(ends_with(".6")) %>%
+  drop_na()
+cronbach.alpha(mafq6) # 0.922
+
+# v7
+mafq7 <-
+  mafq %>%
+  dplyr::select(ends_with(".7")) %>%
+  drop_na()
+cronbach.alpha(mafq7) # 0.911
+
+# v8
+mafq8 <-
+  mafq %>%
+  dplyr::select(ends_with(".8")) %>%
+  drop_na()
+cronbach.alpha(mafq8) # 0.918
+
+# v9
+mafq9 <-
+  mafq %>%
+  dplyr::select(ends_with(".9")) %>%
+  drop_na()
+cronbach.alpha(mafq9) # 0.929
+```
+
+
+# MASC
+
+```{r}
+masc <-
+  df2 %>%
+  dplyr::select(starts_with("masc"))
+```
+
+```{r}
+# baseline
+masc0 <-
+  masc %>%
+  dplyr::select(ends_with(".0")) %>%
+  drop_na()
+cronbach.alpha(masc0) # 0.83
+
+# v1
+masc1 <-
+  masc %>%
+  dplyr::select(ends_with(".1")) %>%
+  drop_na()
+cronbach.alpha(masc1) # 0.869
+
+# v2
+masc2 <-
+  masc %>%
+  dplyr::select(ends_with(".2")) %>%
+  drop_na()
+cronbach.alpha(masc2) # 0.893
+
+# v3
+masc3 <-
+  masc %>%
+  dplyr::select(ends_with(".3")) %>%
+  drop_na()
+cronbach.alpha(masc3) # 0.875
+
+# v4
+masc4 <-
+  masc %>%
+  dplyr::select(ends_with(".4")) %>%
+  drop_na()
+cronbach.alpha(masc4) # 0.875
+
+# v5
+masc5 <-
+  masc %>%
+  dplyr::select(ends_with(".5")) %>%
+  drop_na()
+cronbach.alpha(masc5) # 0.865
+
+# v6
+masc6 <-
+  masc %>%
+  dplyr::select(ends_with(".6")) %>%
+  drop_na()
+cronbach.alpha(masc6) # 0.9
+
+# v7
+masc7 <-
+  masc %>%
+  dplyr::select(ends_with(".7")) %>%
+  drop_na()
+cronbach.alpha(masc7) # 0.908
+
+# v8
+masc8 <-
+  masc %>%
+  dplyr::select(ends_with(".8")) %>%
+  drop_na()
+cronbach.alpha(masc8) # 0.894
+
+# v9
+masc9 <-
+  masc %>%
+  dplyr::select(ends_with(".9")) %>%
+  drop_na()
+cronbach.alpha(masc9) # 0.907
+```

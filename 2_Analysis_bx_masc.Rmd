@@ -1,0 +1,434 @@
+---
+title: "2_Analysis_bx_masc"
+author: "Jackie Kirshenbaum"
+date: "`r format(Sys.Date(), '%B %e %Y')`"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+---
+
+# Libraries 
+
+```{r, libraries, message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(forcats)
+library(DescTools)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(robustHD)
+library(qwraps2)
+library(knitr)
+library(lme4)
+```
+
+# Read in Data
+
+```{r, filepaths, message=FALSE}
+# pad data
+pad_data_fp <- "~/Jackie/pad_data_2021_05_11.Rda"
+pad_data <- load(pad_data_fp)
+
+# roi data from 1_Analysis_brain_and_sample_characteristics.Rmd
+rois_pad_fp <- "~/Jackie/rois_and_pad_usable.csv"
+rois_pad <- 
+  read_csv(rois_pad_fp)
+
+```
+
+## Merging brain and long pad data
+
+```{r}
+pad_data2 <-
+  pad_data_long %>%
+  dplyr::mutate(subID = factor(subID)) %>%
+  drop_na(masc_c)
+
+braindata <-
+  rois_pad %>%
+  dplyr::select(subID, brain_data) %>%
+  distinct() %>%
+  dplyr::mutate(subID = factor(subID))
+
+rois2 <-
+  rois_pad %>%
+  dplyr::select(subID, condition, starts_with("AntIns"), starts_with("dACC"), starts_with("NAcc"), starts_with("caudate"), starts_with("putamen")) %>%
+  dplyr::mutate(subID = factor(subID))
+
+pad_data_hasbrain <-
+  left_join(
+    pad_data2,
+    braindata,
+    by = "subID"
+  ) %>%
+  drop_na(brain_data) %>%
+  dplyr::select(
+    subID, visit, visitN, N_Long, Group, Age, TannerMean, Sex, Hispanic, Race, MaritalStatus, ParentEducation, OtherParentEducation, FamilyIncome, ParentEmploymentIncome, ChildSupport, FederalAid, Disability, White, ParentsMarried, FinancialAssistance, aleq_c:aleqromantic_c, mafq_c, masc_c, masqharmavoid_c, masqphysical_c, masqsepanx_c, masqsocial_c, shaps_c, shapscount_c 
+  ) %>%
+  dplyr::mutate(
+    masc_c_total = masqharmavoid_c + masqphysical_c + masqsepanx_c + masqsocial_c,
+    subID = factor(subID)
+    )
+
+```
+
+
+# Distribution of masc across time
+
+_For those with brain data_
+
+```{r}
+pad_data_hasbrain %>%
+  ggplot(
+    aes(x = visit, y = masc_c_total)
+  ) +
+  geom_line(aes(color = subID)) +
+  geom_smooth(method = "loess", se = FALSE, color = "black") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(
+    x = "Visit",
+    y = "Anxiety Severity",
+    title = "Anxiety Severity over 2 Years"
+  ) # on average, no change in anxiety sx severity over time (which is expected), but there is a lot of variability within and between persons
+
+mean(pad_data_hasbrain$masc_c_total)
+sd(pad_data_hasbrain$masc_c_total)
+summary(pad_data_hasbrain$masc_c_total)
+```
+
+> difficult to tell if there are outliers. Checking skew and kurtosis for each visit
+
+```{r}
+library(moments)
+# distribution of masc at baseline
+pad_and_rois_v0 <-
+  pad_data_hasbrain %>%
+  filter(visit == 0)
+pad_and_rois_v0 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v0$masc_c_total)
+kurtosis(pad_and_rois_v0$masc_c_total)
+
+# distribution of masc at fu 1
+pad_and_rois_v1 <-
+  pad_data_hasbrain %>%
+  filter(visit == 1)
+pad_and_rois_v1 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v1$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v1$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 3
+pad_and_rois_v3 <-
+  pad_data_hasbrain %>%
+  filter(visit == 3)
+pad_and_rois_v3 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v3$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v3$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 6
+pad_and_rois_v6 <-
+  pad_data_hasbrain %>%
+  filter(visit == 6)
+pad_and_rois_v6 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v6$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v6$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 9
+pad_and_rois_v9 <-
+  pad_data_hasbrain %>%
+  filter(visit == 9)
+pad_and_rois_v9 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v9$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v9$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 12
+pad_and_rois_v12 <-
+  pad_data_hasbrain %>%
+  filter(visit == 12)
+pad_and_rois_v12 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v12$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v12$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 15
+pad_and_rois_v15 <-
+  pad_data_hasbrain %>%
+  filter(visit == 15)
+pad_and_rois_v15 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v15$masc_c_total, na.rm = TRUE)
+kurtosis(pad_and_rois_v15$masc_c_total, na.rm = TRUE)  
+
+# distribution of masc at fu 18
+pad_and_rois_v18 <-
+  pad_data_hasbrain %>%
+  filter(visit == 18)
+pad_and_rois_v18 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v18$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v18$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 21
+pad_and_rois_v21 <-
+  pad_data_hasbrain %>%
+  filter(visit == 21)
+pad_and_rois_v21 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v21$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v21$masc_c_total, na.rm = TRUE) 
+
+# distribution of masc at fu 24
+pad_and_rois_v24 <-
+  pad_data_hasbrain %>%
+  filter(visit == 24)
+pad_and_rois_v24 %>%
+  ggplot(
+    aes(x = masc_c_total)
+  ) +
+  geom_histogram() +
+  theme_classic()
+skewness(pad_and_rois_v24$masc_c_total, na.rm = TRUE) 
+kurtosis(pad_and_rois_v24$masc_c_total, na.rm = TRUE) 
+```
+
+> based on examination of each visit, doesn't look like skew and kurtosis are that bad. 
+
+## Identifying outliers
+
+```{r}
+library(DescTools)
+# identifying outliers
+pad_and_rois_outliers <-
+  pad_data_hasbrain %>%
+  ungroup() %>%
+  identify_outliers(masc_c_total) %>%
+  filter(is.extreme == TRUE) # 0
+```
+
+```{r}
+pad_data_hasbrain <-
+  pad_data_hasbrain %>%
+  mutate(subID = factor(subID))
+
+```
+
+
+# Plotting overall distributions of depression and stress
+
+```{r}
+pad_data_hasbrain %>%
+  ggplot(aes(x=masc_c_total)) +
+  geom_histogram(color = "black") +
+  labs(x = "Anxiety Severity")
+
+pad_data_hasbrain %>%
+  ggplot(aes(x=aleq_c)) +
+  geom_histogram(color = "black") +
+  labs(x = "Stress Severity")
+```
+
+# How do anxiety and stress go together? 
+
+## Intraindividual plots (concurrent)
+```{r}
+i <- c("sub-HP603", "sub-HP800", "sub-HP823", "sub-LP205", "sub-LP208", "sub-LP426")
+pad_data_hasbrain %>%
+  filter(subID %in% i) %>%
+  ggplot(
+    aes(x=visit, group=subID), legend=FALSE) +
+  #geom_rect(mapping=aes(xmin=day-.5, xmax=day+.5, ymin=0, ymax=10, fill=wrkstrscw), alpha=0.6) +
+  geom_point(aes(x=visitN,y = scale(masc_c_total)), color="darkorange", shape=17, size=2) +
+  geom_line(aes(x=visitN,y = scale(masc_c_total)), color="darkorange", lty=1, size=1) +
+  geom_point(aes(x=visitN,y = scale(aleq_c)), color="red", shape=17, size=2) +
+  geom_line(aes(x=visitN,y = scale(aleq_c)), color="red", lty=1, size=1) +
+  xlab("Visit") + 
+  ylab("Anxiety = Orange, Stress = Red") +
+  scale_x_continuous(breaks=seq(0,9,by=1)) +
+  facet_wrap( ~ subID) +
+  theme_classic()
+```
+## But, the variance can comes from between and within-persons
+
+Level 1 variable centering
+- computing deviations from the person's mean of that variable (x - mean(x)) for that person
+Level 2 variable centering
+- the person's mean (mean(x))
+
+### First, we split our predictor variables into time-varying and time-invariant components
+```{r}
+# ordering by subject and by visit
+pad_data_hasbrain_order <- pad_data_hasbrain[order(pad_data_hasbrain$subID, pad_data_hasbrain$visitN),]
+
+# combining peer and family stress to create "interpersonal stress"
+interpersonalvars <- c("aleqpeer_c", "aleqfamily_c")
+
+pad_data_hasbrain_order$aleqinterpersonal_c = rowSums(pad_data_hasbrain_order[,(interpersonalvars)])
+```
+
+```{r}
+library(plyr)
+library(dplyr)
+library(reshape2)
+visit.means_aleq <- ddply(pad_data_hasbrain_order, "subID", summarize, aleq_c.L2 =mean(aleq_c, na.rm=TRUE))
+visit.means_aleqNonInt <- ddply(pad_data_hasbrain_order, "subID", summarize, aleqNonInt_c.L2 =mean(aleqnoninterpersonal_c, na.rm=TRUE))
+visit.means_aleqInt <- ddply(pad_data_hasbrain_order, "subID", summarize, aleqInt_c.L2 =mean(aleqinterpersonal_c, na.rm=TRUE))
+
+#Calculating sample-centered versions *Note that this is done in a person-level data file.
+visit.means_aleq$aleq_c.L2.c <- scale(visit.means_aleq$aleq_c.L2,center=TRUE,scale=FALSE)
+visit.means_aleqNonInt$aleqNonInt_c.L2.c <- scale(visit.means_aleqNonInt$aleqNonInt_c.L2, center = TRUE, scale = FALSE)
+visit.means_aleqInt$aleqInt_c.L2.c <- scale(visit.means_aleqInt$aleqInt_c.L2, center = TRUE, scale = FALSE)
+
+
+
+#merging "trait" scores back into the *long* data file and calculate "state" scores.
+visit.means2 <- merge(
+  pad_data_hasbrain_order,
+  visit.means_aleq,
+  by="subID"
+  )
+visit.means3 <- merge(
+  visit.means2,
+  visit.means_aleqNonInt,
+  by="subID"
+  )
+visit.means3 <- merge(
+  visit.means3,
+  visit.means_aleqInt,
+  by="subID"
+  )
+
+# creating level 1 variables
+visit.means3$aleq_c.L1 <- visit.means3$aleq_c - visit.means3$aleq_c.L2
+visit.means3$aleqNonInt_c.L1 <- visit.means3$aleqnoninterpersonal_c - visit.means3$aleqNonInt_c.L2
+visit.means3$aleqInt_c.L1 <- visit.means3$aleqinterpersonal_c - visit.means3$aleqInt_c.L2
+
+```
+
+> L2 = level 2 (trait/btwn-person) variance
+> L1 = level 1 (state/within-person) variance
+
+### saving L1 and L2 variable dataframe 
+```{r}
+visit.means3_L1andL2vars <-
+  visit.means3 %>%
+  dplyr::select(-ends_with("L2.c"))
+```
+
+# ACF
+```{r}
+library(forecast)
+Acf(visit.means3_L1andL2vars$masc_c, type = "correlation", plot = TRUE, na.action = na.contiguous)
+# mostly surrounding zero
+```
+
+## Regular MLMs using within and between person variance of stress to predict trajectories of anxiety
+```{r,message=FALSE}
+library(sjPlot)
+library(lmerTest)
+library(performance)
+library(reghelper)
+library(parameters)
+library(MuMIn)
+library(interactions)
+```
+
+# Bx Model 
+> To determine covariates
+
+```{r}
+contrasts(visit.means3_L1andL2vars$Sex)
+contrasts(visit.means3_L1andL2vars$Group)
+
+mlm_ri <- 
+  lmer(
+    scale(masc_c_total)  ~  
+      scale(aleq_c.L1) +  scale(aleq_c.L2)  + scale(visitN) + scale(Age) + Sex + scale(TannerMean) + Group +
+      (1 | subID), REML = TRUE,
+    data = visit.means3_L1andL2vars
+    )
+summary(mlm_ri) # Sex, between and within-person stress
+
+
+mlm_rs <- 
+  lmer(
+    scale(masc_c_total)  ~  
+      scale(aleq_c.L2)  + scale(aleq_c.L1) + scale(visitN) + scale(Age) + Sex + scale(TannerMean) + Group +
+      (1 + scale(visitN)| subID), REML = TRUE,
+    data = visit.means3_L1andL2vars
+    )
+summary(mlm_rs) # Sex, between and within-person stress 
+
+anova(mlm_ri, mlm_rs) # random slope is better fit 
+
+check_model(mlm_rs, panel = TRUE)
+```
+> going with random slope model 
+
+```{r}
+sjPlot::tab_model(mlm_rs, bootstrap = TRUE, iterations = 1000, dv.labels = c("Anxiety Severity"), seed = 1234, pred.labels = c("Intercept", "Between-person Stress", "Within-person Stress", "Visit", "Age", "Sex [F]", "Tanner", "Risk Group [High]"), file = "Anxiety_Covariates.doc")
+```
+
+
+# Writing csv for next analysis
+```{r}
+
+pad_and_rois_usable <- 
+  left_join(
+    visit.means3_L1andL2vars,
+    rois2,
+    by = "subID"
+  )
+
+write_csv(pad_and_rois_usable, "pad_and_rois_usable_masc.csv")
+```
+

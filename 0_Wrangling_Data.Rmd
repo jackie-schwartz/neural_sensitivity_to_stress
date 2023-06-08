@@ -1,0 +1,395 @@
+---
+title: "0_Wrangling_Data"
+author: "Jackie Kirshenbaum"
+date: "03/10/2022"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+# Loading Libraries
+
+```{r,message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(forcats)
+library(DescTools)
+library(robustHD)
+```
+
+# Read in Data
+
+ROIS from neurosynth and harvard-oxford atlas  
+Looking specifically at Bilateral NAcc, Bilateral Ant Ins, dACC, Bilateral Caudate, Bilateral Putamen  
+
+```{r,message=FALSE,echo=FALSE}
+
+rois_pre_fp <- "~/Jackie/roi_stats_pre_rew_loss.3mm_voxcount.txt"
+rois_post_fp <- "~/Jackie/roi_stats_post_rew_loss.3mm_voxcount.txt"
+excl_ids_fp <- "~/Jackie/pre_and_post_excl_ids_.3mm.csv"
+
+
+rois_pre <- read_tsv(rois_pre_fp, col_names = TRUE)
+rois_post <- read_tsv(rois_post_fp, col_names = TRUE)
+excl_ids <- read_csv(excl_ids_fp)
+```
+
+# Cleaning Data
+
+## Key for ROIs:
+#### 1 = L NAcc
+#### 2 = R NAcc
+#### 3 = R Ant Ins
+#### 4 = L Ant Ins
+#### 5 = dACC
+#### 7 = L Caudate
+#### 8 = R Caudate
+#### 9 = L Putamen
+#### 10 = R Putamen
+
+## Pre
+
+```{r}
+# paths
+rootpath1 <- "~/GLMs/VOL_DOORS_PRE_3dD_CueamRT_Antdm_2exNR_NR_JSK/"
+nchar(rootpath1) # num characters
+rootpath2 <- ".results/stats.sub-HP602_REML+tlrc.HEAD[FB_LOSS#0_Coef,FB_WIN#0_Coef,FB_WINvLOSS#0_Coef]"
+nchar(rootpath2)
+
+# clean
+rois_pre_clean <-
+  rois_pre %>%
+  dplyr::mutate(
+    subID = str_sub(File, start = 101, end = -89),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_LOSS#0"), "FB_LOSS", `Sub-brick`
+      ),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_WIN#0"), "FB_WIN", condition
+        ),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_WINvLO"), "FB_WINvLOSS", condition
+        )
+  )
+rois_pre_clean2 <-
+  rois_pre_clean %>%
+  filter(`Sub-brick` !="Sub-brick") %>%
+  dplyr::select(-File, -`Sub-brick`, -NZMean_6, -NZcount_6) %>%
+  dplyr::select(subID, condition, everything()) %>%
+  dplyr::rename(NAcc_l.pre = NZMean_1) %>%
+  dplyr::rename(NAcc_l.pre_voxcount = NZcount_1) %>%
+  dplyr::rename(NAcc_r.pre = NZMean_2) %>%
+  dplyr::rename(NAcc_r.pre_voxcount = NZcount_2) %>%
+  dplyr::rename(AntIns_r.pre = NZMean_3) %>%
+  dplyr::rename(AntIns_r.pre_voxcount = NZcount_3) %>%  
+  dplyr::rename(AntIns_l.pre = NZMean_4) %>%
+  dplyr::rename(AntIns_l.pre_voxcount = NZcount_4) %>%  
+  dplyr::rename(dACC.pre = NZMean_5) %>%
+  dplyr::rename(dACC.pre_voxcount = NZcount_5) %>%   
+  dplyr::rename(caudate_l.pre = NZMean_7) %>%
+  dplyr::rename(caudate_l.pre_voxcount = NZcount_7) %>%    
+  dplyr::rename(caudate_r.pre = NZMean_8) %>%
+  dplyr::rename(caudate_r.pre_voxcount = NZcount_8) %>%     
+  dplyr::rename(putamen_l.pre = NZMean_9) %>%
+  dplyr::rename(putamen_l.pre_voxcount = NZcount_9) %>%   
+  dplyr::rename(putamen_r.pre = NZMean_10) %>%
+  dplyr::rename(putamen_r.pre_voxcount = NZcount_10) %>%  
+  dplyr::select(-starts_with("Key"))
+
+NAcc_l <- 70
+NAcc_r <- 56
+AntIns_r<- 451
+AntIns_l <- 350
+dacc <- 298
+caud_l <- 444
+caud_r <- 457
+put_l <- 761
+put_r <- 756
+rois_pre_count_check <-
+  rois_pre_clean2 %>%
+  dplyr::mutate(
+    NAcc_l_pre_vox = NA,
+    NAcc_r_pre_vox = NA,
+    AntIns_r_pre_vox = NA,
+    AntIns_l_pre_vox = NA,
+    dacc_pre_vox = NA,
+    caud_l_pre_vox = NA,
+    caud_r_pre_vox = NA,
+    put_l_pre_vox = NA,
+    put_r_pre_vox = NA,
+    NAcc_l_pre_vox = 
+      case_when(
+       NAcc_l %in% NAcc_l.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),
+    NAcc_r_pre_vox = 
+      case_when(
+       NAcc_r %in% NAcc_r.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),   
+    AntIns_r_pre_vox = 
+      case_when(
+       AntIns_r %in% AntIns_r.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    AntIns_l_pre_vox = 
+      case_when(
+       AntIns_l %in% AntIns_l.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),   
+    dacc_pre_vox = 
+      case_when(
+       dacc %in% dACC.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    caud_r_pre_vox = 
+      case_when(
+       caud_r %in% caudate_r.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    caud_l_pre_vox = 
+      case_when(
+       caud_l %in% caudate_l.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),      
+    put_r_pre_vox = 
+      case_when(
+       put_r %in% putamen_r.pre_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    put_l_pre_vox = 
+      case_when(
+       put_l %in% putamen_l.pre_voxcount ~ "match", TRUE ~ "diff"
+      ) 
+  )
+    
+# convert variables
+pre <- 
+  rois_pre_clean2 %>%
+  dplyr::select(ends_with("pre")) %>%
+  names()
+
+rois_pre_clean3 <-
+  rois_pre_clean2 %>%
+  mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+  ) %>%
+  mutate(across(c(all_of(pre)), as.numeric))
+```
+
+## Post 
+
+```{r}
+# paths
+rootpath1 <- "~/GLMs/VOL_DOORS_POST_3dD_CueamRT_Antdm_2exNR_NR_JSK/"
+nchar(rootpath1) # num characters
+rootpath2 <- ".results/stats.sub-HP602_REML+tlrc.HEAD[FB_LOSS#0_Coef,FB_WIN#0_Coef,FB_WINvLOSS#0_Coef]"
+nchar(rootpath2)
+
+
+# clean
+rois_post_clean <-
+  rois_post %>%
+  dplyr::mutate(
+    subID = str_sub(File, start = 102, end = -89),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_LOSS#0"), "FB_LOSS", `Sub-brick`
+      ),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_WIN#0"), "FB_WIN", condition
+        ),
+    condition =
+      ifelse(
+        str_detect(`Sub-brick`, "FB_WINvLO"), "FB_WINvLOSS", condition
+        )
+  ) 
+
+rois_post_clean2 <-
+  rois_post_clean %>%
+  filter(`Sub-brick` !="Sub-brick") %>%
+  dplyr::select(-File, -`Sub-brick`, -NZMean_6, -NZcount_6) %>%
+  dplyr::select(subID, condition, everything()) %>%
+  dplyr::rename(NAcc_l.post = NZMean_1) %>%
+  dplyr::rename(NAcc_l.post_voxcount = NZcount_1) %>%
+  dplyr::rename(NAcc_r.post = NZMean_2) %>%
+  dplyr::rename(NAcc_r.post_voxcount = NZcount_2) %>%
+  dplyr::rename(AntIns_r.post = NZMean_3) %>%
+  dplyr::rename(AntIns_r.post_voxcount = NZcount_3) %>%
+  dplyr::rename(AntIns_l.post = NZMean_4) %>%
+  dplyr::rename(AntIns_l.post_voxcount = NZcount_4) %>%
+  dplyr::rename(dACC.post = NZMean_5) %>%
+  dplyr::rename(dACC.post_voxcount = NZcount_5) %>%
+  dplyr::rename(caudate_l.post = NZMean_7) %>%
+  dplyr::rename(caudate_l.post_voxcount = NZcount_7) %>%
+  dplyr::rename(caudate_r.post = NZMean_8) %>%
+  dplyr::rename(caudate_r.post_voxcount = NZcount_8) %>%
+  dplyr::rename(putamen_l.post = NZMean_9) %>%
+  dplyr::rename(putamen_l.post_voxcount = NZcount_9) %>%
+  dplyr::rename(putamen_r.post = NZMean_10) %>%  
+  dplyr::rename(putamen_r.post_voxcount = NZcount_10) %>%
+  dplyr::select(-starts_with("Key"))
+
+NAcc_l <- 70
+NAcc_r <- 56
+AntIns_r<- 451
+AntIns_l <- 350
+dacc <- 298
+caud_l <- 444
+caud_r <- 457
+put_l <- 761
+put_r <- 756
+rois_post_count_check <-
+  rois_post_clean2 %>%
+  dplyr::mutate(
+    NAcc_l_post_vox = NA,
+    NAcc_r_post_vox = NA,
+    AntIns_r_post_vox = NA,
+    AntIns_l_post_vox = NA,
+    dacc_post_vox = NA,
+    caud_l_post_vox = NA,
+    caud_r_post_vox = NA,
+    put_l_post_vox = NA,
+    put_r_post_vox = NA,
+    NAcc_l_post_vox = 
+      case_when(
+       NAcc_l %in% NAcc_l.post_voxcount ~ "match", TRUE ~ "diff"
+      ),
+    NAcc_r_post_vox = 
+      case_when(
+       NAcc_r %in% NAcc_r.post_voxcount ~ "match", TRUE ~ "diff"
+      ),   
+    AntIns_r_post_vox = 
+      case_when(
+       AntIns_r %in% AntIns_r.post_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    AntIns_l_post_vox = 
+      case_when(
+       AntIns_l %in% AntIns_l.post_voxcount ~ "match", TRUE ~ "diff"
+      ),   
+    dacc_post_vox = 
+      case_when(
+       dacc %in% dACC.post_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    caud_r_post_vox = 
+      case_when(
+       caud_r %in% caudate_r.post_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    caud_l_post_vox = 
+      case_when(
+       caud_l %in% caudate_l.post_voxcount ~ "match", TRUE ~ "diff"
+      ),      
+    put_r_post_vox = 
+      case_when(
+       put_r %in% putamen_r.post_voxcount ~ "match", TRUE ~ "diff"
+      ),        
+    put_l_post_vox = 
+      case_when(
+       put_l %in% putamen_l.post_voxcount ~ "match", TRUE ~ "diff"
+      ) 
+  )
+    
+# convert variables
+post <- 
+  rois_post_clean2 %>%
+  dplyr::select(ends_with("post")) %>%
+  names()
+
+rois_post_clean3 <-
+  rois_post_clean2 %>%
+  mutate(
+    subID = factor(subID),
+    condition = factor(condition)
+  ) %>%
+  mutate(across(c(all_of(post)), as.numeric))
+```
+# Combining
+
+```{r}
+# combining pre and post rois
+rois_comb <-
+  full_join(
+    rois_pre_clean3,
+    rois_post_clean3,
+    by = c("subID", "condition")
+  )
+
+# selecting exclude_both and Risk vars
+excl_ids_select <-
+  excl_ids %>%
+  dplyr::select(subID, exclude_both, Risk)
+
+# combining rois and excl dfs
+rois_comb2 <-
+  left_join(
+    rois_comb,
+    excl_ids_select,
+    by = "subID"
+  ) %>%
+  filter(exclude_both == "0") %>%
+  dplyr::select(-exclude_both) %>%
+  filter(condition == "FB_WIN" | condition == "FB_LOSS")
+
+```
+
+# Data Viz
+
+_By Condition and by Pre vs Post_
+
+
+```{r}
+# "([[:alnum:]]+).([[:alnum:]]+)"
+rois_comb2_long <- 
+  rois_comb2 %>%
+  pivot_longer(
+    cols = c(ends_with("pre"), ends_with("post")),
+    names_to = "rois"
+  ) %>%
+  mutate(
+    across(subID:rois, factor),
+    value = as.numeric(value)
+    )%>%
+  separate(., col = "rois", into = c("roi", "timept"), sep = "([.])") %>%
+  mutate(roi = factor(roi))
+  # spread(roi, value)
+```
+
+
+```{r}
+
+rois_comb2_long$timept = fct_relevel(rois_comb2_long$timept, "pre", "post")
+
+rois_comb2_long %>%
+  dplyr::mutate(
+    roi = dplyr::recode(roi, "AntIns_l" = "L Anterior Insula", "AntIns_r" = "R Anterior Insula ", "caudate_l" = "L Caudate", "caudate_r" = "R Caudate", "dACC" = "dorsal ACC", "NAcc_l" = "L NAcc", "NAcc_r" = "R NAcc", "putamen_l" = "L Putamen", "putamen_r" = "R Putamen")
+    ) %>%
+  ggplot(
+    aes(x=condition, y=value, fill=timept)
+    ) +
+  geom_boxplot(alpha = .5) +
+  facet_wrap(~roi) +
+  theme_classic() +
+  labs(
+    x = "Condition",
+    y = "Beta Value",
+    title = "Distribution Activation Based on ROI, and Pre vs. Post Stress for the Win and Loss Conditions"
+  ) + 
+  theme(
+    axis.text = element_text(size = 10, angle = 90, hjust = 1),
+    axis.title = element_text(size = 10),
+    title = element_text(size = 10),
+    plot.title = element_text(size = 10)
+  ) +
+  scale_fill_hue(h = c(60,280))
+```
+
+# Write Data
+```{r}
+write_fp <- "~/Jackie/rois_comb_win_and_loss.csv"
+write_csv(rois_comb2, write_fp)
+```
+
+

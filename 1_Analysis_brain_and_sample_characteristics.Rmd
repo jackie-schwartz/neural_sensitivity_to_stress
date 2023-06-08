@@ -1,0 +1,564 @@
+---
+title: "1_Analysis_brain_and_sample_char"
+author: "Jackie Kirshenbaum"
+date: "`r format(Sys.Date(), '%B %e %Y')`"
+output:
+  html_document:
+    df_print: paged
+  toc: yes
+  toc_float: yes
+---
+
+# Libraries 
+
+```{r, libraries, message=FALSE}
+library(tidyverse)
+library(foreign)
+library(readxl)
+library(lubridate)
+library(lmerTest)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(forcats)
+library(DescTools)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(robustHD)
+library(qwraps2)
+library(knitr)
+library(lme4)
+```
+
+# Read in Data
+
+```{r, filepaths, message=FALSE}
+# pad data
+pad_data_fp <- "~/Jackie/pad_data_2021_05_11.Rda"
+
+# roi data from 1_Analysis_brain.Rmd
+rois_fp <- "~/Jackie/rois_comb_win_and_loss.csv"
+
+# excluded ids
+dt_brain_ids_fp <- "~/Jackie/pre_and_post_excl_ids_.3mm.csv"
+
+# subject notes
+all_brain_ids_fp <- "~/Jackie/sub_notes.xlsx"
+
+pad_data <- load(pad_data_fp)
+
+# mri dates
+mri_date_fp <- "~/MRI and MRS Log File.xlsx"
+
+# baseline dates
+bl_date_fp <- "~/PAD Demographic Data.xlsx"
+
+# % female 
+pad %>%
+  dplyr::summarise(
+    n = n(),
+    female_perc = sum(Sex=="F")/n,
+    highrisk = sum(Group=="HighRisk"),
+    highrisk_perc = highrisk/n
+  )
+
+rois <- read_csv(rois_fp) %>% dplyr::mutate(subID = factor(subID))# dataset with pre and post stress within win and loss conditions
+dt_brain_ids <- read_csv(dt_brain_ids_fp) # dataset that lists brain ids with dt data and whether or not they were excluded/included
+all_brain_ids <- read_excel(all_brain_ids_fp, sheet = "All_Subjs") # dataset that lists all brain ids
+```
+
+
+__FU Assessments__  
+_Mood and Feelings Questionnaire (MAFQ)_  
+>> assesses depressive sx severity over 2 weeks
+_Snaith-Hamilton Pleasure Scale (SHAPS)_  
+>> sensitivity analysis to anhedonia
+_Adolescent Life Events Questionnaire (ALEQ)_  
+>> interpersonal and non-interpersonal stress subscales  
+
+1M = _1  
+3M = _2  
+6M = _3  
+9M = _4  
+12M = _5  
+15M = _6  
+18M = _7  
+21M = _8  
+24M = _9  
+
+```{r}
+pad_data_long_sel <-
+  pad_data_long %>%
+  dplyr::select(
+    subID, Group, N_Long, visit, visitN, Age, TannerMean, Sex, Hispanic, Race, MaritalStatus, ParentEducation, OtherParentEducation, FamilyIncome, ParentEmploymentIncome, ChildSupport, FederalAid, Disability, White, ParentsMarried, FinancialAssistance, mafq_c, shaps_c, masc_c, starts_with("aleq") 
+  ) %>%
+  select(
+    -ends_with("_p"), -ends_with("_pself")
+  ) %>%
+  mutate(
+    subID = factor(subID),
+    Group = factor(Group),
+    Race = factor(Race),
+    MaritalStatus = factor(MaritalStatus),
+    ParentEducation = factor(ParentEducation),
+    OtherParentEducation = factor(OtherParentEducation),
+    White = factor(White),
+    ParentsMarried = factor(ParentsMarried)
+  ) %>%
+  drop_na(mafq_c) %>%
+  drop_na(shaps_c)
+N_samp <- length(unique(pad_data_long_sel$subID)) # 122
+# N_Long = number of visits
+# visit = month f/u (1, 3, 6, 9, 12, 15, 18, 21, 24); 0 = baseline (time at scan)
+# visitN = coded month f/u (1, 2, 3, 4, 5, 6, 7, 8, 9); 0 = baseline (time at scan)
+```
+
+## Filtering thsoe with at least baseline and 2 f/us
+
+```{r}
+pad_data_long_sel_baseline <-
+  pad_data_long_sel %>%
+  filter(visitN == 0) # 122 have baseline
+
+pad_data_long_sel_numvisits <-
+  pad_data_long_sel %>%
+  dplyr::group_by(subID) %>%
+  dplyr::summarise(
+    visitNum = n()
+  )
+
+pad_data_long_sel2 <-
+  left_join(
+    pad_data_long_sel,
+    pad_data_long_sel_numvisits,
+    by = "subID"
+  ) %>%
+  dplyr::select(subID, N_Long, visitNum, everything()) %>%
+  dplyr::select(-N_Long) %>%
+  dplyr::rename(N_Long = visitNum)
+
+baseline_ids <- pad_data_long_sel_baseline$subID
+
+pad_data_long_sel_fus <-
+  pad_data_long_sel2 %>%
+  dplyr::mutate(
+    enough_data = ifelse(subID %in% baseline_ids & N_Long > 2, "keep", "drop")
+  ) %>% # losing 11 for not enough fu data
+  filter(enough_data == "keep") %>%
+  dplyr::select(subID, N_Long,  shaps_c, mafq_c, masc_c, aleq_c, everything())
+
+pad_data_long_sel_fus %>%
+  dplyr::group_by(subID) %>%
+  dplyr::summarise(n = n()) # 111
+```
+
+### Who has brain data and f/us
+
+```{r}
+all_brain_ids <-
+  all_brain_ids %>%
+ dplyr::mutate(subID = factor(subID_raw))
+
+dt_brain_ids <-
+  dt_brain_ids %>%
+ dplyr::mutate(subID = factor(subID))
+
+allbrain <-
+  left_join(
+    all_brain_ids,
+    dt_brain_ids,
+    by = "subID"
+  )
+
+allbrain <-
+  allbrain %>%
+  mutate(
+    has_task_data = ifelse(is.na(subID_pre) | is.na(subID_post), "no", "yes")
+  )
+
+sumallbrain <-
+  allbrain %>%
+  group_by(has_task_data) %>%
+  dplyr::summarise(n = n()) # 115 all brain
+
+dt_brain <-
+  allbrain %>%
+  filter(has_task_data == "yes") %>%
+  mutate(
+    too_much_motion = ifelse(exclude_both == "1", "yes", "no")
+  )
+
+sum_dtbrain <-
+  dt_brain %>%
+  group_by(too_much_motion) %>%
+  dplyr::summarise(n = n()) # 97 are fine; 18 have too much motion
+
+```
+
+### Joining dfs
+
+```{r}
+pad_and_allbrain <-
+  left_join(
+    pad_data_long_sel_fus, # 111 participant with baseline and f/u data
+    allbrain,
+    by = "subID"
+  ) %>%
+  drop_na(has_task_data)
+
+pad_and_allbrain_sum <-
+  pad_and_allbrain %>%
+  filter(visit == 0) %>%
+  group_by(has_task_data) %>%
+  dplyr::summarise(n = n())
+
+pad_and_incl_brain <-
+  pad_and_allbrain %>%
+  filter(visit == 0) %>%  
+  filter(has_task_data == "yes") %>%
+  mutate(
+    too_much_motion = ifelse(exclude_both == "1", "yes", "no")
+  )
+
+pad_and_incl_brain_sum <-
+  pad_and_incl_brain %>%
+  group_by(too_much_motion) %>%
+  dplyr::summarise(n = n())
+
+```
+
+# Summary: Sample Characteristics and Demographics
+
+### comparisons brain vs no/bad brain data
+```{r}
+pad_and_allbrain_comp <-
+  pad_and_allbrain %>%
+  filter(visit == 0) %>%
+  mutate(
+    brain_data = ifelse((has_task_data == "no" | exclude_both == "1") | is.na(has_task_data),  "no", "yes"))
+
+pad_and_allbrain_comp %>%
+  group_by(brain_data) %>%
+  dplyr::summarise(n = n())
+
+summary_comp_tbl <- 
+  pad_and_allbrain_comp %>% 
+  group_by(brain_data) %>%
+  dplyr::summarise(
+    n = n(),
+    HighRisk_n = sum(Group == "HighRisk"),
+    HighRisk_perc = (HighRisk_n/n)*100,
+    Age_mean = mean(Age, na.rm = TRUE),
+    Age_sd = sd(Age, na.rm = TRUE),
+    TannerAvg_mean = mean(TannerMean, na.rm = TRUE),
+    TannerAvg_sd = sd(TannerMean, na.rm = TRUE),
+    Female_n = sum(Sex == "F"),
+    Female_perc = (Female_n/n)*100,
+    Hispanic_n = sum(Hispanic == "Hispanic"),
+    Hispanic_perc = (Hispanic_n/n)*100,
+    Race_a = sum(Race == "Asian"),
+    Race_a_perc = (Race_a/n)*100,  
+    Race_a = sum(Race == "Asian"),
+    Race_a_perc = (Race_a/n)*100,      
+    Race_b = sum(Race == "Black"),
+    Race_b_perc = (Race_b/n)*100,        
+    Race_m = sum(Race == "Black"),
+    Race_m_perc = (Race_m/n)*100,        
+    Race_w = sum(Race == "White"),
+    Race_w_perc = (Race_w/n)*100,    
+    FinancialAssistance_n = sum(FinancialAssistance == "TRUE"),
+    FinancialAssistance_perc = (FinancialAssistance_n/n)*100,
+    FamilyIncome_unknown_n = sum(FamilyIncome == "Unknown"),
+    FamilyIncome_unknown_perc = (FamilyIncome_unknown_n/n)*100,
+    FamilyIncome_less10_n = sum(FamilyIncome == "<$10k"),
+    FamilyIncome_less10_perc = (FamilyIncome_less10_n/n)*100,
+    FamilyIncome_10_25_n = sum(FamilyIncome == "$10-25k"),
+    FamilyIncome_10_25_perc = (FamilyIncome_10_25_n/n)*100,
+    FamilyIncome_25_50_n = sum(FamilyIncome == "$25-50k"),
+    FamilyIncome_25_50_perc = (FamilyIncome_25_50_n/n)*100,    
+    FamilyIncome_50_75_n = sum(FamilyIncome == "$50-75k"),
+    FamilyIncome_50_75_perc = (FamilyIncome_50_75_n/n)*100,       
+    FamilyIncome_75_100_n = sum(FamilyIncome == "$75-100k"),
+    FamilyIncome_75_100_perc = (FamilyIncome_75_100_n/n)*100,      
+    FamilyIncome_100plus_n = sum(FamilyIncome == "$100k+"),
+    FamilyIncome_100plus_perc = (FamilyIncome_100plus_n/n)*100,      
+    shaps_mean = mean(shaps_c, na.rm = TRUE),
+    shaps_sd = sd(shaps_c, na.rm = TRUE),
+    mafq_mean = mean(mafq_c, na.rm = TRUE),
+    mafq_sd = sd(mafq_c, na.rm = TRUE),
+    masc_mean = mean(masc_c, na.rm = TRUE),
+    masc_sd = sd(masc_c, na.rm = TRUE),
+    aleq_mean = mean(aleq_c, na.rm = TRUE),
+    aleq_sd = sd(aleq_c, na.rm = TRUE)
+    )
+print(summary_comp_tbl)
+write_csv(summary_comp_tbl, "~/Jackie/summary_comp_brain_nobrain_tbl_.3mm.csv")
+
+# Group Affiliation
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$Group, rescale.p = TRUE) # no diff 
+# comparing proportions visually
+pad_and_allbrain_comp %>% ggplot(aes(x = brain_data, fill = Group)) + geom_histogram(stat = "count") + theme_classic()
+
+# Age
+t.test(Age ~ brain_data, data = pad_and_allbrain_comp) # no diff
+
+# Tanner
+t.test(TannerMean ~ brain_data, data = pad_and_allbrain_comp) # no diff
+
+# Female vs Male
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$Sex) # no diff
+
+# Hispanic
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$Hispanic) # no diff (although hard to compare across hipanic and non-hispanic bc so few hispanic)
+
+# Race
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$Race) # no diff (although hard to compare across levels bc so few BIPOC)
+
+# Financial Assistance
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$FinancialAssistance) # no diff
+
+# Family Income
+chisq.test(pad_and_allbrain_comp$brain_data, pad_and_allbrain_comp$FamilyIncome) # no diff
+
+# Anhedonia
+t.test(shaps_c ~ brain_data, data = pad_and_allbrain_comp) # no diff
+
+# Depression
+t.test(mafq_c ~ brain_data, data = pad_and_allbrain_comp) # no diff
+
+# Anxiety
+t.test(masc_c ~ brain_data, data = pad_and_allbrain_comp) # no diff
+
+# Stress
+t.test(aleq_c ~ brain_data, data = pad_and_allbrain_comp) # no diff
+```
+
+
+## Now dropping those without brain data
+
+### Sample characteristics
+
+```{r}
+pad_and_usable_brain <-
+  pad_and_allbrain_comp %>%
+  filter(brain_data == "yes")
+
+## Characteristics of those with brain data
+summary_tbl_data <- 
+  pad_and_usable_brain %>% 
+  dplyr::summarise(
+    n = n(),
+    HighRisk_n = sum(Group == "HighRisk"),
+    HighRisk_perc = (HighRisk_n/n)*100,
+    Age_mean = mean(Age, na.rm = TRUE),
+    Age_sd = sd(Age, na.rm = TRUE),
+    Age_min = min(Age),
+    Age_max = max(Age),
+    TannerAvg_mean = mean(TannerMean, na.rm = TRUE),
+    TannerAvg_sd = sd(TannerMean, na.rm = TRUE),
+    Female_n = sum(Sex == "F"),
+    Female_perc = (Female_n/n)*100,
+    Hispanic_n = sum(Hispanic == "Hispanic"),
+    Hispanic_perc = (Hispanic_n/n)*100,
+    Race_a = sum(Race == "Asian"),
+    Race_a_perc = (Race_a/n)*100,  
+    Race_b = sum(Race == "Black"),
+    Race_b_perc = (Race_b/n)*100,        
+    Race_m = sum(Race == "Multiracial"),
+    Race_m_perc = (Race_m/n)*100,        
+    Race_w = sum(Race == "White"),
+    Race_w_perc = (Race_w/n)*100,    
+    FinancialAssistance_n = sum(FinancialAssistance == "TRUE"),
+    FinancialAssistance_perc = (FinancialAssistance_n/n)*100,
+    FamilyIncome_unknown_n = sum(FamilyIncome == "Unknown"),
+    FamilyIncome_unknown_perc = (FamilyIncome_unknown_n/n)*100,
+    FamilyIncome_less10_n = sum(FamilyIncome == "<$10k"),
+    FamilyIncome_less10_perc = (FamilyIncome_less10_n/n)*100,
+    FamilyIncome_10_25_n = sum(FamilyIncome == "$10-25k"),
+    FamilyIncome_10_25_perc = (FamilyIncome_10_25_n/n)*100,
+    FamilyIncome_25_50_n = sum(FamilyIncome == "$25-50k"),
+    FamilyIncome_25_50_perc = (FamilyIncome_25_50_n/n)*100,    
+    FamilyIncome_50_75_n = sum(FamilyIncome == "$50-75k"),
+    FamilyIncome_50_75_perc = (FamilyIncome_50_75_n/n)*100,       
+    FamilyIncome_75_100_n = sum(FamilyIncome == "$75-100k"),
+    FamilyIncome_75_100_perc = (FamilyIncome_75_100_n/n)*100,      
+    FamilyIncome_100plus_n = sum(FamilyIncome == "$100k+"),
+    FamilyIncome_100plus_perc = (FamilyIncome_100plus_n/n)*100,
+    shaps_mean = mean(shaps_c, na.rm = TRUE),
+    shaps_sd = sd(shaps_c, na.rm = TRUE),
+    mafq_mean = mean(mafq_c, na.rm = TRUE),
+    mafq_sd = sd(mafq_c, na.rm = TRUE),
+    masc_mean = mean(masc_c, na.rm = TRUE),
+    masc_sd = sd(masc_c, na.rm = TRUE),
+    aleq_mean = mean(aleq_c, na.rm = TRUE),
+    aleq_sd = sd(aleq_c, na.rm = TRUE)
+    )
+
+write_csv(summary_tbl_data, "~/Jackie/summary_tbl_characteristics_.3mm.csv")
+
+# Between High and Low Risk
+## Characteristics of those with brain data
+summary_tbl_data_LR_HR <- 
+  pad_and_usable_brain %>% 
+  dplyr::group_by(Group) %>%
+  dplyr::summarise(
+    n = n(),
+    Age_mean = mean(Age, na.rm = TRUE),
+    Age_sd = sd(Age, na.rm = TRUE),
+    Age_min = min(Age),
+    Age_max = max(Age),
+    TannerAvg_mean = mean(TannerMean, na.rm = TRUE),
+    TannerAvg_sd = sd(TannerMean, na.rm = TRUE),
+    Female_n = sum(Sex == "F"),
+    Female_perc = (Female_n/n)*100,
+    Hispanic_n = sum(Hispanic == "Hispanic"),
+    Hispanic_perc = (Hispanic_n/n)*100,
+    Race_a = sum(Race == "Asian"),
+    Race_a_perc = (Race_a/n)*100,  
+    Race_b = sum(Race == "Black"),
+    Race_b_perc = (Race_b/n)*100,        
+    Race_m = sum(Race == "Multiracial"),
+    Race_m_perc = (Race_m/n)*100,        
+    Race_w = sum(Race == "White"),
+    Race_w_perc = (Race_w/n)*100,    
+    FinancialAssistance_n = sum(FinancialAssistance == "TRUE"),
+    FinancialAssistance_perc = (FinancialAssistance_n/n)*100,
+    FamilyIncome_unknown_n = sum(FamilyIncome == "Unknown"),
+    FamilyIncome_unknown_perc = (FamilyIncome_unknown_n/n)*100,
+    FamilyIncome_less10_n = sum(FamilyIncome == "<$10k"),
+    FamilyIncome_less10_perc = (FamilyIncome_less10_n/n)*100,
+    FamilyIncome_10_25_n = sum(FamilyIncome == "$10-25k"),
+    FamilyIncome_10_25_perc = (FamilyIncome_10_25_n/n)*100,
+    FamilyIncome_25_50_n = sum(FamilyIncome == "$25-50k"),
+    FamilyIncome_25_50_perc = (FamilyIncome_25_50_n/n)*100,    
+    FamilyIncome_50_75_n = sum(FamilyIncome == "$50-75k"),
+    FamilyIncome_50_75_perc = (FamilyIncome_50_75_n/n)*100,       
+    FamilyIncome_75_100_n = sum(FamilyIncome == "$75-100k"),
+    FamilyIncome_75_100_perc = (FamilyIncome_75_100_n/n)*100,      
+    FamilyIncome_100plus_n = sum(FamilyIncome == "$100k+"),
+    FamilyIncome_100plus_perc = (FamilyIncome_100plus_n/n)*100,
+    shaps_mean = mean(shaps_c, na.rm = TRUE),
+    shaps_sd = sd(shaps_c, na.rm = TRUE),
+    mafq_mean = mean(mafq_c, na.rm = TRUE),
+    mafq_sd = sd(mafq_c, na.rm = TRUE),
+    masc_mean = mean(masc_c, na.rm = TRUE),
+    masc_sd = sd(masc_c, na.rm = TRUE),
+    aleq_mean = mean(aleq_c, na.rm = TRUE),
+    aleq_sd = sd(aleq_c, na.rm = TRUE)
+  )
+
+write_csv(summary_tbl_data_LR_HR, "~/Jackie/summary_tbl_characteristics_LRHR.3mm.csv")
+
+# Age
+t.test(Age ~ Group, data = pad_and_usable_brain) # no diff
+
+# Tanner
+t.test(TannerMean ~ Group, data = pad_and_usable_brain) # no diff
+
+# Female vs Male
+chisq.test(pad_and_usable_brain$Group, pad_and_usable_brain$Sex) # no diff
+
+# Hispanic
+chisq.test(pad_and_usable_brain$Group, pad_and_usable_brain$Hispanic) # no diff (although hard to compare across hipanic and non-hispanic bc so few hispanic)
+
+# Race
+chisq.test(pad_and_usable_brain$Group, pad_and_usable_brain$Race) # no diff (although hard to compare across levels bc so few BIPOC)
+
+# Financial Assistance
+chisq.test(pad_and_usable_brain$Group, pad_and_usable_brain$FinancialAssistance) # no diff
+
+# Family Income
+chisq.test(pad_and_usable_brain$Group, pad_and_usable_brain$FamilyIncome) # no diff
+
+# Anhedonia
+t.test(shaps_c ~ Group, data = pad_and_usable_brain) # diff
+
+# Depression
+t.test(mafq_c ~ Group, data = pad_and_usable_brain) # no diff
+
+# Anxiety
+t.test(masc_c ~ Group, data = pad_and_usable_brain) # diff
+
+# Stress
+t.test(aleq_c ~ Group, data = pad_and_usable_brain) # no diff
+```
+
+# Combining usable bx and brain dfs
+
+```{r}
+pad_and_usable_brain2 <-
+  pad_and_usable_brain %>%
+  dplyr::select(-c(starts_with("subID_"), enough_data, starts_with("n_cen"), starts_with("perc_cens"), starts_with("exclude"), has_task_data)) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    Risk = factor(Risk)
+    )
+rois <-
+  rois %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    Risk = factor(Risk)
+  )
+
+rois_and_pad <-
+  left_join(
+    pad_and_usable_brain2,
+    rois,
+    by = c("subID", "Risk")
+  ) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    Risk = factor(Risk),
+    condition = factor(condition)
+  )
+
+# retrieving dates
+
+mri_date <- 
+  read_excel(mri_date_fp) %>% 
+  janitor::clean_names() %>%
+  dplyr::select(participant_id, date_of_scan)
+  
+  
+bl_date <- read_excel(bl_date_fp) %>%
+  janitor::clean_names() %>%
+  dplyr::select(participant_id, initial_assessment)
+
+dates <-
+  left_join(bl_date, mri_date, by = "participant_id") %>%
+  dplyr::mutate(
+    date_interval = as.duration(initial_assessment %--% date_of_scan),
+    date_interval2 = as.numeric(date_interval, "days")
+  ) %>%
+  rename("subID" = "participant_id") %>%
+  dplyr::mutate(subID = factor(subID))
+
+subj_list <-
+  rois_and_pad %>%
+  dplyr::select(subID) %>%
+  distinct() %>%
+  dplyr::mutate(
+    subID = str_remove_all(subID, "[sub-]"),
+    subID = factor(subID),
+  ) %>%
+  left_join(dates, by = "subID")
+
+subj_list %>%
+  dplyr::summarise(
+    mean_days = mean(date_interval2, na.rm = TRUE),
+    sd_days = sd(date_interval2, na.rm = TRUE)
+  )
+#   mean_days sd_days
+#  12.41463  41.313
+```
+
+
+# Writing dataframe 
+> Usable ROI data with baseline bx data
+
+```{r}
+rois_and_pad_fp <- "~/Jackie/rois_and_pad_usable.csv"
+write_csv(rois_and_pad, rois_and_pad_fp)
+```
+
