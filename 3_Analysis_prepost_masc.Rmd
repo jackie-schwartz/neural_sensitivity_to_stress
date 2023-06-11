@@ -12,39 +12,13 @@ output:
 # Libraries 
 
 ```{r, libraries, message=FALSE}
-library(tidyverse)
-library(foreign)
-library(readxl)
-library(lubridate)
-library(lmerTest)
-library(psych)
-library(viridis)
-library(hrbrthemes)
-library(forcats)
-library(DescTools)
-library(rstatix)
-library(car)
-library(ggpubr)
-library(robustHD)
-library(qwraps2)
-library(knitr)
-library(lme4)
-```
+library(tidyverse) # 2.0.0 
+library(sjPlot) # 2.8.12
+library(interactions) # 1.1.5
+library(performance) # 0.10.2
+library(lmerTest) # 3.1-3
 
-# Functions
-
-```{r}
-getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-}
-
-library(sjPlot)
-library(lmerTest)
-library(performance)
-library(reghelper)
-library(parameters)
-library(MuMIn)
+sessionInfo()
 ```
 
 # Read in Data
@@ -141,26 +115,7 @@ pad_and_rois_merge_WIN_z <-
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
     masc_c_social_z = as.numeric(scale(masqsocial_c)), # social anxiety
     mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression 
-    shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia
-    NAcc_l_rawdiff_z = as.numeric(scale(NAcc_l_rawdiff)),
-    NAcc_r_rawdiff_z = as.numeric(scale(NAcc_r_rawdiff)), 
-    NAcc_avg_rawdiff_z = as.numeric(scale(NAcc_avg_rawdiff)),       
-    caudate_l_rawdiff_z = as.numeric(scale(caudate_l_rawdiff)),
-    caudate_r_rawdiff_z = as.numeric(scale(caudate_r_rawdiff)), 
-    caudate_avg_rawdiff_z = as.numeric(scale(caudate_avg_rawdiff)),
-    putamen_l_rawdiff_z = as.numeric(scale(putamen_l_rawdiff)),
-    putamen_r_rawdiff_z = as.numeric(scale(putamen_r_rawdiff)), 
-    putamen_avg_rawdiff_z = as.numeric(scale(putamen_avg_rawdiff)),
-    NAcc_l_rawchange_z = as.numeric(scale(NAcc_l_rawchange)),
-    NAcc_r_rawchange_z = as.numeric(scale(NAcc_r_rawchange)), 
-    NAcc_avg_rawchange_z = as.numeric(scale(NAcc_avg_rawchange)),       
-    caudate_l_rawchange_z = as.numeric(scale(caudate_l_rawchange)),
-    caudate_r_rawchange_z = as.numeric(scale(caudate_r_rawchange)), 
-    caudate_avg_rawchange_z = as.numeric(scale(caudate_avg_rawchange)),
-    putamen_l_rawchange_z = as.numeric(scale(putamen_l_rawchange)),
-    putamen_r_rawchange_z = as.numeric(scale(putamen_r_rawchange)), 
-    putamen_avg_rawchange_z = as.numeric(scale(putamen_avg_rawchange))       
+    shaps_c_z = as.numeric(scale(shaps_c)) # anhedonia
     ) 
 
 contrasts(pad_and_rois_merge_WIN_z$Group) = contr.treatment(2, base = 2)
@@ -183,16 +138,7 @@ pad_and_rois_merge_LOSS_z <-
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
     masc_c_social_z = as.numeric(scale(masqsocial_c)), # social anxiety
     mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
-    shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia    
-    AntIns_l_rawdiff_z = as.numeric(scale(AntIns_l_rawdiff)),
-    AntIns_r_rawdiff_z = as.numeric(scale(AntIns_r_rawdiff)),    
-    AntIns_avg_rawdiff_z = as.numeric(scale(AntIns_avg_rawdiff)),  
-    dACC_rawdiff_z = as.numeric(scale(dACC_rawdiff)),        
-    AntIns_l_rawchange_z = as.numeric(scale(AntIns_l_rawchange)),
-    AntIns_r_rawchange_z = as.numeric(scale(AntIns_r_rawchange)),    
-    AntIns_avg_rawchange_z = as.numeric(scale(AntIns_avg_rawchange)),  
-    dACC_rawchange_z = as.numeric(scale(dACC_rawchange))  
+    shaps_c_z = as.numeric(scale(shaps_c)) # anhedonia
   )
 
 contrasts(pad_and_rois_merge_LOSS_z$Group) = contr.treatment(2, base = 2)
@@ -203,6 +149,7 @@ contrasts(pad_and_rois_merge_LOSS_z$Sex) = contr.treatment(2, base = 2)
 set_theme(
   base = theme_bw()
 )
+options(scipen = 999)
 ```
 
 # Does brain pre-post stress in the win condition correlate with anxiety severity 
@@ -224,7 +171,6 @@ library(interactions)
 
 ### NAcc pre-post-stress win
 ```{r}
-
 # NAcc_l x within-person stress
 mlm_NAcc_l_win_prepost_z <- 
   lmer(
@@ -233,7 +179,12 @@ mlm_NAcc_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_NAcc_l_win_prepost_z) # CI overlaps zero
+summary(mlm_NAcc_l_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_NAcc_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # CI overlaps zero
 
 # NAcc_r x within-person stress
 mlm_NAcc_r_win_prepost_z <- 
@@ -243,7 +194,12 @@ mlm_NAcc_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_NAcc_r_win_prepost_z) # No interaction
+summary(mlm_NAcc_r_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # No interaction
 
 ```
 > No interaction by stress for NAcc
@@ -259,7 +215,12 @@ mlm_caudate_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_l_win_prepost_z) # no interaction 
+summary(mlm_caudate_l_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_caudate_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 # caudate_r x within-person stress
 mlm_caudate_r_win_prepost_z <- 
@@ -269,7 +230,12 @@ mlm_caudate_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_r_win_prepost_z) # no interaction
+summary(mlm_caudate_r_win_prepost_z)
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 ```
 
 > No interaction by stress for caudate
@@ -284,7 +250,12 @@ mlm_putamen_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_putamen_l_win_prepost_z) # no interaction
+summary(mlm_putamen_l_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 # putamen_r x within-person stress
 mlm_putamen_r_win_prepost_z <- 
@@ -294,7 +265,12 @@ mlm_putamen_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_putamen_r_win_prepost_z) # no interaction  
+summary(mlm_putamen_r_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 ```
 
@@ -328,26 +304,17 @@ mlm_dacc_loss_prepost_z <-
        data = pad_and_rois_merge_LOSS_z
   )
 summary(mlm_dacc_loss_prepost_z) # aleq_c.L1_z:dACC_prepost_resLOSS 
+sjPlot::tab_model(
+  mlm_dacc_loss_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) 
 
-hist(pad_and_rois_merge_LOSS_z$dACC_prepost_resLOSS)
-plot_model(mlm_dacc_loss_prepost_z, type = "diag") # okay
-check_model(mlm_dacc_loss_prepost_z) # no outliers
-check_outliers(mlm_dacc_loss_prepost_z)
-mlm_dacc_loss_prepost <- 
-  lmer(
-    masc_c_total ~ 
-      Sex  + aleq_c.L2 +  aleq_c.L1*dACC_prepost_resLOSS  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_LOSS_z
-  )
-sjPlot::plot_model(mlm_dacc_loss_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
 sim_slopes(mlm_dacc_loss_prepost_z, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
 
-####### Exploratory PRE vs POST for dACC ########
-exp_dacc_pre <-  lmer(masc_c_total_z ~ Sex + aleq_c.L2_z +  aleq_c.L1_z*dACC.pre_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
-summary(exp_dacc_pre)
-exp_dacc_post <- lmer(masc_c_total_z ~ Sex + aleq_c.L2_z + dACC.pre_z + aleq_c.L1_z*dACC.post_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
-summary(exp_dacc_post)
+check_convergence(mlm_dacc_loss_prepost_z)
+plot_model(mlm_dacc_loss_prepost_z, type = "diag") 
+check_model(mlm_dacc_loss_prepost_z) 
 
 
 ####### Exploratory adjusting for longitudinal MFQ and SHAPS ####### 
@@ -359,7 +326,12 @@ mlm_dacc_loss_prepost_z_mfq <-
        data = pad_and_rois_merge_LOSS_z
   )
 summary(mlm_dacc_loss_prepost_z_mfq) # interaction holds 
-
+check_convergence(mlm_dacc_loss_prepost_z_mfq)
+sjPlot::tab_model(
+  mlm_dacc_loss_prepost_z_mfq, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 
 mlm_dacc_loss_prepost_mfq <- 
   lmer(
@@ -373,8 +345,6 @@ sjPlot::plot_model(mlm_dacc_loss_prepost_mfq, type = "int", show.data = TRUE, co
 save_plot("dACCxStress-Anxiety.png", fig = ggplot2::last_plot(), width = 12, height = 8, dpi = 300, theme = ggplot2::theme_get(), label.color = "black", label.size = 2.4, axis.textsize = 0.8, axis.titlesize = 0.75, legend.textsize = 0.6, legend.titlesize = 0.65, legend.itemsize = 0.5)
 
 sim_slopes(mlm_dacc_loss_prepost_z_mfq, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
-check_outliers(mlm_dacc_loss_prepost_z_mfq)
-
 
 mlm_dacc_loss_prepost_z_shaps <- 
   lmer(
@@ -383,19 +353,14 @@ mlm_dacc_loss_prepost_z_shaps <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_dacc_loss_prepost_z_shaps) # interaction holds 
-
-mlm_dacc_loss_prepost_shaps <- 
-  lmer(
-    masc_c_total ~ 
-      Sex + aleq_c.L2 +  aleq_c.L1 * dACC_prepost_resLOSS  + shaps_c +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_LOSS_z
-  )
-
-sjPlot::plot_model(mlm_dacc_loss_prepost_shaps, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd", title = "dACC Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized dACC \n Post-Pre Acute Stress")
+summary(mlm_dacc_loss_prepost_z_shaps)
+check_convergence(mlm_dacc_loss_prepost_z_shaps)
+sjPlot::tab_model(
+  mlm_dacc_loss_prepost_z_shaps, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 sim_slopes(mlm_dacc_loss_prepost_z_shaps, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
-check_outliers(mlm_dacc_loss_prepost_z_shaps)
 ```
 
 # Table dACC
@@ -430,7 +395,12 @@ mlm_antins_l_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_l_prepost_z) #  No interaction   
+summary(mlm_antins_l_prepost_z) 
+sjPlot::tab_model(
+  mlm_antins_l_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) #  No interaction  
 
 mlm_antins_r_prepost_z <- 
   lmer(
@@ -439,29 +409,18 @@ mlm_antins_r_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_r_prepost_z)
+summary(mlm_antins_r_prepost_z) # aleq_c.L1_z:AntIns_r_prepost_resLOSS 
+sjPlot::tab_model(
+  mlm_antins_r_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction
 
-hist(pad_and_rois_merge_LOSS_z$AntIns_r_prepost_resLOSS)
-plot_model(mlm_antins_r_prepost_z, type = "diag") # okay
-check_model(mlm_antins_r_prepost_z)
-check_outliers(mlm_antins_r_prepost_z)
-
-mlm_antins_r_prepost <- 
-  lmer(
-    masc_c_total ~ 
-      Sex  + aleq_c.L2 +  aleq_c.L1*AntIns_r_prepost_resLOSS  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_LOSS_z
-  )
-sjPlot::plot_model(mlm_antins_r_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
 sim_slopes(mlm_antins_r_prepost_z, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
 
-
-####### Exploratory PRE vs POST for R Ant Ins ########
-exp_antins_r_pre <-  lmer(masc_c_total_z ~ Sex + aleq_c.L2_z +  aleq_c.L1_z*AntIns_r.pre_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
-summary(exp_antins_r_pre)
-exp_antins_r_post <- lmer(masc_c_total_z ~ Sex + aleq_c.L2_z + AntIns_r.pre_z + aleq_c.L1_z*AntIns_r.post_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_LOSS_z)
-summary(exp_antins_r_post)
+check_convergence(mlm_antins_r_prepost_z)
+plot_model(mlm_antins_r_prepost_z, type = "diag") 
+check_model(mlm_antins_r_prepost_z) 
 
 
 ####### Exploratory adjusting for longitudinal MFQ and SHAPS ####### 
@@ -472,8 +431,13 @@ mlm_antins_r_prepost_z_mfq <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_r_prepost_z_mfq) # interaction holds 
-
+summary(mlm_antins_r_prepost_z_mfq) 
+check_convergence(mlm_antins_r_prepost_z_mfq)
+sjPlot::tab_model(
+  mlm_antins_r_prepost_z_mfq, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 
 mlm_antins_r_prepost_mfq <- 
   lmer(
@@ -484,7 +448,6 @@ mlm_antins_r_prepost_mfq <-
   )
 sjPlot::plot_model(mlm_antins_r_prepost_mfq, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R Anterior Insula Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized R Ant Ins \n Post-Pre Acute Stress")
 sim_slopes(mlm_antins_r_prepost_z_mfq, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
-check_outliers(mlm_antins_r_prepost_z_mfq)
 
 mlm_antins_r_prepost_z_shaps <- 
   lmer(
@@ -493,18 +456,16 @@ mlm_antins_r_prepost_z_shaps <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_r_prepost_z_shaps) # interaction holds 
+summary(mlm_antins_r_prepost_z_shaps)  
+check_convergence(mlm_antins_r_prepost_z_shaps)
+sjPlot::tab_model(
+  mlm_antins_r_prepost_z_shaps, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 
-mlm_antins_r_prepost_shaps <- 
-  lmer(
-    masc_c_total ~ 
-      Sex + aleq_c.L2 +  aleq_c.L1*AntIns_r_prepost_resLOSS + shaps_c +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_LOSS_z
-  )
-sjPlot::plot_model(mlm_antins_r_prepost_shaps, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R Anterior Insula Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anxiety", legend.title ="Residualized R Ant Ins \n Post-Pre Acute Stress")
 sim_slopes(mlm_antins_r_prepost_z_shaps, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
-check_outliers(mlm_antins_r_prepost_z_shaps)
+
 ```
 
 # Table R Ant Ins
@@ -537,11 +498,7 @@ sjPlot::tab_model(
 # dACC, l Ant Ins, r Ant Ins
 ploss <- c(0.008, 0.310, 0.002)
 p.adjust(ploss, method = "fdr", n = length(ploss))
-
-### with that one participant removed
-# dACC, l Ant Ins, r Ant Ins
-ploss_rem <- c(0.016, 0.576, 0.008)
-p.adjust(ploss_rem, method = "fdr", n = length(ploss_rem))
+# 0.012 0.310 0.006
 ```
 
 # Null Win Model Tables

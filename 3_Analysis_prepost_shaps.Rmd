@@ -12,39 +12,23 @@ output:
 # Libraries 
 
 ```{r, libraries, message=FALSE}
-library(tidyverse)
-library(foreign)
-library(readxl)
-library(lubridate)
-library(lmerTest)
-library(psych)
-library(viridis)
-library(hrbrthemes)
-library(forcats)
-library(DescTools)
-library(rstatix)
-library(car)
-library(ggpubr)
-library(robustHD)
-library(qwraps2)
-library(knitr)
-library(lme4)
-library(lattice)
-library(sjPlot)
-library(performance)
-library(reghelper)
-library(parameters)
-library(MuMIn)
+library(tidyverse) # 2.0.0 
+library(sjPlot) # 2.8.12
+library(interactions) # 1.1.5
+library(performance) # 0.10.2
+library(lmerTest) # 3.1-3
+
+sessionInfo()
 ```
 
 
 # Read in Data
 
 ```{r, filepaths, message=FALSE}
-pad_and_rois_merge_data_fp <- "~/Jackie/pad_and_rois_usable_shaps.csv"
-rois_change_LOSS_fp <- "~/Jackie/rois_change_LOSS.csv"
-rois_change_WIN_fp <- "~/Jackie/rois_change_WIN.csv"
-mfq_fp <- "~/Jackie/pad_and_rois_usable_mafq.csv"
+pad_and_rois_merge_data_fp <- "/Volumes/columbia/PAD_MRI/DP_analysis/Jackie/pad_and_rois_usable_shaps.csv"
+rois_change_LOSS_fp <- "/Volumes/columbia/PAD_MRI/DP_analysis/Jackie/rois_change_LOSS.csv"
+rois_change_WIN_fp <- "/Volumes/columbia/PAD_MRI/DP_analysis/Jackie/rois_change_WIN.csv"
+mfq_fp <- "/Volumes/columbia/PAD_MRI/DP_analysis/Jackie/pad_and_rois_usable_mafq.csv"
 
 mfq <-
   read_csv(mfq_fp) %>%
@@ -131,26 +115,7 @@ pad_and_rois_merge_WIN_z <-
     visit_num_z = as.numeric(scale(visitN)),
     shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia 
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
-    mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
-    NAcc_l_rawdiff_z = as.numeric(scale(NAcc_l_rawdiff)),
-    NAcc_r_rawdiff_z = as.numeric(scale(NAcc_r_rawdiff)), 
-    NAcc_avg_rawdiff_z = as.numeric(scale(NAcc_avg_rawdiff)),       
-    caudate_l_rawdiff_z = as.numeric(scale(caudate_l_rawdiff)),
-    caudate_r_rawdiff_z = as.numeric(scale(caudate_r_rawdiff)), 
-    caudate_avg_rawdiff_z = as.numeric(scale(caudate_avg_rawdiff)),
-    putamen_l_rawdiff_z = as.numeric(scale(putamen_l_rawdiff)),
-    putamen_r_rawdiff_z = as.numeric(scale(putamen_r_rawdiff)), 
-    putamen_avg_rawdiff_z = as.numeric(scale(putamen_avg_rawdiff)),
-    NAcc_l_rawchange_z = as.numeric(scale(NAcc_l_rawchange)),
-    NAcc_r_rawchange_z = as.numeric(scale(NAcc_r_rawchange)), 
-    NAcc_avg_rawchange_z = as.numeric(scale(NAcc_avg_rawchange)),       
-    caudate_l_rawchange_z = as.numeric(scale(caudate_l_rawchange)),
-    caudate_r_rawchange_z = as.numeric(scale(caudate_r_rawchange)), 
-    caudate_avg_rawchange_z = as.numeric(scale(caudate_avg_rawchange)),
-    putamen_l_rawchange_z = as.numeric(scale(putamen_l_rawchange)),
-    putamen_r_rawchange_z = as.numeric(scale(putamen_r_rawchange)), 
-    putamen_avg_rawchange_z = as.numeric(scale(putamen_avg_rawchange))       
+    mafq_c_w_z = as.numeric(scale(mafq_c_w)) # depression
     ) 
 
 contrasts(pad_and_rois_merge_WIN_z$Group) = contr.treatment(2, base = 2)
@@ -172,16 +137,7 @@ pad_and_rois_merge_LOSS_z <-
     visit_num_z = as.numeric(scale(visitN)),
     shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
-    mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
-    AntIns_l_rawdiff_z = as.numeric(scale(AntIns_l_rawdiff)),
-    AntIns_r_rawdiff_z = as.numeric(scale(AntIns_r_rawdiff)),    
-    AntIns_avg_rawdiff_z = as.numeric(scale(AntIns_avg_rawdiff)),  
-    dACC_rawdiff_z = as.numeric(scale(dACC_rawdiff)),        
-    AntIns_l_rawchange_z = as.numeric(scale(AntIns_l_rawchange)),
-    AntIns_r_rawchange_z = as.numeric(scale(AntIns_r_rawchange)),    
-    AntIns_avg_rawchange_z = as.numeric(scale(AntIns_avg_rawchange)),  
-    dACC_rawchange_z = as.numeric(scale(dACC_rawchange))  
+    mafq_c_w_z = as.numeric(scale(mafq_c_w)) # depression
   )
 
 contrasts(pad_and_rois_merge_LOSS_z$Group) = contr.treatment(2, base = 2)
@@ -192,6 +148,7 @@ contrasts(pad_and_rois_merge_LOSS_z$Sex) = contr.treatment(2, base = 2)
 set_theme(
   base = theme_bw()
 )
+options(scipen = 999)
 ```
 
 # Does brain pre-post stress in the win condition correlate with anhedonia severity 
@@ -212,7 +169,7 @@ library(interactions)
 ```
 
 ### NAcc pre-post-stress win
-> Three participants were missing up to 10 voxels of coverage in their R NAcc, so this code chucnk also conducts sensitivity analysis excluding those participant.
+> Three participants were missing up to 10 voxels of coverage in their R NAcc, so this code chunk also conducts sensitivity analysis excluding those participant.
 
 ```{r}
 
@@ -225,6 +182,11 @@ mlm_NAcc_l_win_prepost_z <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_l_win_prepost_z) # no interaction
+sjPlot::tab_model(
+  mlm_NAcc_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 
 # NAcc_r x within-person stress
 mlm_NAcc_r_win_prepost_z <- 
@@ -235,28 +197,19 @@ mlm_NAcc_r_win_prepost_z <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_r_win_prepost_z) # interaction: aleq_c.L1_z:NAcc_r_prepost_resWIN 
-
-hist(pad_and_rois_merge_WIN_z$NAcc_r_prepost_resWIN)
-plot_model(mlm_NAcc_r_win_prepost_z, type='diag') 
-check_model(mlm_NAcc_r_win_prepost_z) # no outliers
-check_collinearity(mlm_NAcc_r_win_prepost_z)
-
-mlm_NAcc_r_win_prepost <- 
-  lmer(
-    shaps_c ~ 
-      Age + Group +  Sex + aleq_c.L2 +  aleq_c.L1*NAcc_r_prepost_resWIN  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z
-  )
-sjPlot::plot_model(mlm_NAcc_r_win_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
 sim_slopes(mlm_NAcc_r_win_prepost_z, pred=aleq_c.L1_z, modx=NAcc_r_prepost_resWIN, jnplot=TRUE)
 
-####### Exploratory PRE vs POST for R NAcc ########
-exp_nacc_r_pre <-  lmer(shaps_c ~ Age+  Group + Sex + aleq_c.L2 +  aleq_c.L1*NAcc_r.pre_z + (1 + visitN | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_nacc_r_pre)
-sjPlot::plot_model(exp_nacc_r_pre, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
-exp_nacc_r_post <- lmer(shaps_c_z ~ Age_z +  Group + Sex + aleq_c.L2_z + NAcc_r.pre_z + aleq_c.L1_z*NAcc_r.post_z + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_nacc_r_post)
+# there were convergence warnings, so checking this
+check_convergence(mlm_NAcc_r_win_prepost_z)
+
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
+plot_model(mlm_NAcc_r_win_prepost_z, type = "diag") 
+check_model(mlm_NAcc_r_win_prepost_z) # doesn't look like any outliers
+
 
 ####### Exploratory adjusting for longitudinal MFQ and MASC ####### 
 mlm_NAcc_r_win_prepost_z_mfq <- 
@@ -267,8 +220,12 @@ mlm_NAcc_r_win_prepost_z_mfq <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_r_win_prepost_z_mfq)
-plot_model(mlm_NAcc_r_win_prepost_z_mfq, type='diag') 
-check_collinearity(mlm_NAcc_r_win_prepost_z_mfq)
+check_convergence(mlm_NAcc_r_win_prepost_z_mfq)
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z_mfq, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 
 mlm_NAcc_r_win_prepost_mfq <- 
   lmer(
@@ -283,6 +240,7 @@ save_plot("RNaccxStress-Anhedonia.png", fig = ggplot2::last_plot(), width = 12, 
 
 sim_slopes(mlm_NAcc_r_win_prepost_z_mfq, pred=aleq_c.L1_z, modx=NAcc_r_prepost_resWIN, jnplot=TRUE)
 
+
 mlm_NAcc_r_win_prepost_z_masc <- 
   lmer(
     shaps_c_z ~ 
@@ -291,18 +249,14 @@ mlm_NAcc_r_win_prepost_z_masc <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_r_win_prepost_z_masc)
-plot_model(mlm_NAcc_r_win_prepost_z_masc, type='diag') 
-check_collinearity(mlm_NAcc_r_win_prepost_z_masc)
-
-mlm_NAcc_r_win_prepost_masc <- 
-  lmer(
-    shaps_c ~ 
-      Age +  Group + Sex + aleq_c.L2 +  aleq_c.L1 * NAcc_r_prepost_resWIN  + masc_c_total + 
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z
-  )
-sjPlot::plot_model(mlm_NAcc_r_win_prepost_masc, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R NAcc Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Anhedonia", legend.title ="Residualized R NAcc \n Post-Pre Acute Stress")
+check_convergence(mlm_NAcc_r_win_prepost_z_masc)
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z_masc, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 sim_slopes(mlm_NAcc_r_win_prepost_z_masc, pred=aleq_c.L1_z, modx=NAcc_r_prepost_resWIN, jnplot=TRUE)
+
 
 #### Sensitivity Excluding HP806, HP809, and LP216 ####
 pad_and_rois_merge_WIN_z_sens <-
@@ -324,7 +278,14 @@ mlm_NAcc_r_win_prepost_z_sens <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z_sens
   )
-summary(mlm_NAcc_r_win_prepost_z_sens) # interaction holds excluding the three participants
+summary(mlm_NAcc_r_win_prepost_z_sens)
+check_convergence(mlm_NAcc_r_win_prepost_z_sens)
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 
 mlm_NAcc_r_win_prepost_z_mfq_sens <- 
   lmer(
@@ -333,7 +294,14 @@ mlm_NAcc_r_win_prepost_z_mfq_sens <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z_sens
   )
-summary(mlm_NAcc_r_win_prepost_z_mfq_sens) # interaction holds excluding the three participants
+summary(mlm_NAcc_r_win_prepost_z_mfq_sens) 
+check_convergence(mlm_NAcc_r_win_prepost_z_mfq_sens)
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z_mfq_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 
 mlm_NAcc_r_win_prepost_z_masc_sens <- 
   lmer(
@@ -342,7 +310,14 @@ mlm_NAcc_r_win_prepost_z_masc_sens <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z_sens
   )
-summary(mlm_NAcc_r_win_prepost_z_masc_sens) # interaction holds excluding the three participants
+summary(mlm_NAcc_r_win_prepost_z_masc_sens) 
+check_convergence(mlm_NAcc_r_win_prepost_z_masc_sens)
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z_masc_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 ```
 > 2 way interaction between R NAcc and stress predicitng anhedonia
 
@@ -408,7 +383,13 @@ mlm_caudate_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_l_win_prepost_z) # no interaction 
+summary(mlm_caudate_l_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_caudate_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
+
 
 # caudate_r x within-person stress
 mlm_caudate_r_win_prepost_z <- 
@@ -418,7 +399,12 @@ mlm_caudate_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_r_win_prepost_z) # no interaction
+summary(mlm_caudate_r_win_prepost_z)
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 ```
 
 > No interaction by stress for caudate
@@ -433,7 +419,12 @@ mlm_putamen_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_putamen_l_win_prepost_z) # no interaction
+summary(mlm_putamen_l_win_prepost_z) 
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 # putamen_r x within-person stress
 mlm_putamen_r_win_prepost_z <- 
@@ -443,7 +434,12 @@ mlm_putamen_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_putamen_r_win_prepost_z) # no interaction  
+summary(mlm_putamen_r_win_prepost_z)  
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 ```
 
@@ -484,8 +480,12 @@ mlm_dacc_loss_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_dacc_loss_prepost_z) # No interaction 
-
+summary(mlm_dacc_loss_prepost_z) 
+sjPlot::tab_model(
+  mlm_dacc_loss_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 ```
 
 ### AntIns pre-post-stress loss
@@ -497,7 +497,12 @@ mlm_antins_l_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_l_prepost_z) #  No interaction   
+summary(mlm_antins_l_prepost_z)   
+sjPlot::tab_model(
+  mlm_antins_l_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
 
 mlm_antins_r_prepost_z <- 
   lmer(
@@ -506,7 +511,13 @@ mlm_antins_r_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
   )
-summary(mlm_antins_r_prepost_z) #  No interaction
+summary(mlm_antins_r_prepost_z) 
+sjPlot::tab_model(
+  mlm_antins_r_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # no interaction 
+
 ```
 
 # Null Win Model Tables

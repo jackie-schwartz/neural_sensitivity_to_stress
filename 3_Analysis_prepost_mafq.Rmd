@@ -12,28 +12,13 @@ output:
 # Libraries 
 
 ```{r, libraries, message=FALSE}
-library(tidyverse)
-library(foreign)
-library(readxl)
-library(lubridate)
-library(lmerTest)
-library(psych)
-library(viridis)
-library(hrbrthemes)
-library(forcats)
-library(DescTools)
-library(rstatix)
-library(car)
-library(ggpubr)
-library(robustHD)
-library(qwraps2)
-library(knitr)
-library(lme4)
-library(lattice)
-library(performance)
-library(reghelper)
-library(MuMIn)
-library(sjPlot)
+library(tidyverse) # 2.0.0 
+library(sjPlot) # 2.8.12
+library(interactions) # 1.1.5
+library(performance) # 0.10.2
+library(lmerTest) # 3.1-3
+
+sessionInfo()
 ```
 
 # Read in Data
@@ -107,27 +92,8 @@ pad_and_rois_merge_WIN_z <-
     aleqInt_c.L2_z = as.numeric(scale(aleqInt_c.L2)), # L2 interpersonal stress
     visit_num_z = as.numeric(scale(visitN)),
     mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety total
-    shaps_c_z = as.numeric(scale(shaps_c)), # anhedonia
-    NAcc_l_rawdiff_z = as.numeric(scale(NAcc_l_rawdiff)),
-    NAcc_r_rawdiff_z = as.numeric(scale(NAcc_r_rawdiff)), 
-    NAcc_avg_rawdiff_z = as.numeric(scale(NAcc_avg_rawdiff)),       
-    caudate_l_rawdiff_z = as.numeric(scale(caudate_l_rawdiff)),
-    caudate_r_rawdiff_z = as.numeric(scale(caudate_r_rawdiff)), 
-    caudate_avg_rawdiff_z = as.numeric(scale(caudate_avg_rawdiff)),
-    putamen_l_rawdiff_z = as.numeric(scale(putamen_l_rawdiff)),
-    putamen_r_rawdiff_z = as.numeric(scale(putamen_r_rawdiff)), 
-    putamen_avg_rawdiff_z = as.numeric(scale(putamen_avg_rawdiff)),
-    NAcc_l_rawchange_z = as.numeric(scale(NAcc_l_rawchange)),
-    NAcc_r_rawchange_z = as.numeric(scale(NAcc_r_rawchange)), 
-    NAcc_avg_rawchange_z = as.numeric(scale(NAcc_avg_rawchange)),       
-    caudate_l_rawchange_z = as.numeric(scale(caudate_l_rawchange)),
-    caudate_r_rawchange_z = as.numeric(scale(caudate_r_rawchange)), 
-    caudate_avg_rawchange_z = as.numeric(scale(caudate_avg_rawchange)),
-    putamen_l_rawchange_z = as.numeric(scale(putamen_l_rawchange)),
-    putamen_r_rawchange_z = as.numeric(scale(putamen_r_rawchange)), 
-    putamen_avg_rawchange_z = as.numeric(scale(putamen_avg_rawchange))       
+    shaps_c_z = as.numeric(scale(shaps_c)) # anhedonia
     ) 
 
 contrasts(pad_and_rois_merge_WIN_z$Group) = contr.treatment(2, base = 2)
@@ -148,17 +114,8 @@ pad_and_rois_merge_LOSS_z <-
     aleqInt_c.L2_z = as.numeric(scale(aleqInt_c.L2)), # L2 interpersonal stress
     visit_num_z = as.numeric(scale(visitN)),
     mafq_c_w_z = as.numeric(scale(mafq_c_w)), # depression
-    mafq_c_w_log_z = as.numeric(scale(mafq_c_w_log)), # logged depression
     masc_c_total_z = as.numeric(scale(masc_c_total)), # anxiety
-    shaps_c_z = as.numeric(scale(shaps_c)),   # anhedonia
-    AntIns_l_rawdiff_z = as.numeric(scale(AntIns_l_rawdiff)),
-    AntIns_r_rawdiff_z = as.numeric(scale(AntIns_r_rawdiff)),    
-    AntIns_avg_rawdiff_z = as.numeric(scale(AntIns_avg_rawdiff)),  
-    dACC_rawdiff_z = as.numeric(scale(dACC_rawdiff)),        
-    AntIns_l_rawchange_z = as.numeric(scale(AntIns_l_rawchange)),
-    AntIns_r_rawchange_z = as.numeric(scale(AntIns_r_rawchange)),    
-    AntIns_avg_rawchange_z = as.numeric(scale(AntIns_avg_rawchange)),  
-    dACC_rawchange_z = as.numeric(scale(dACC_rawchange))  
+    shaps_c_z = as.numeric(scale(shaps_c))   # anhedonia
   )
 
 contrasts(pad_and_rois_merge_LOSS_z$Group) = contr.treatment(2, base = 2)
@@ -169,6 +126,7 @@ contrasts(pad_and_rois_merge_LOSS_z$Sex) = contr.treatment(2, base = 2)
 set_theme(
   base = theme_bw()
 )
+options(scipen = 999)
 ```
 
 # Does brain pre-post stress in the win condition correlate with depression severity 
@@ -187,32 +145,39 @@ pad_and_rois_merge_WIN_z_l2 <-
     mean_shaps = mean(shaps_c, na.rm = TRUE)
   ) %>%
   filter(visitN == 0) 
-
-library(interactions)
 ```
 
 ### NAcc pre-post-stress win
 ```{r}
-
 # NAcc_l x within-person stress 
 mlm_NAcc_l_win_prepost_z <- 
   lmer(
-    mafq_c_w_log_z ~ 
+    mafq_c_w_z ~ 
       Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*NAcc_l_prepost_resWIN  +
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_l_win_prepost_z) # no interaction
+sjPlot::tab_model(
+  mlm_NAcc_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 
 # NAcc_r x within-person stress
 mlm_NAcc_r_win_prepost_z <- 
   lmer(
-    mafq_c_w_log_z ~ 
+    mafq_c_w_z ~ 
       Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*NAcc_r_prepost_resWIN  +
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_NAcc_r_win_prepost_z) # no interaction
+sjPlot::tab_model(
+  mlm_NAcc_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 ```
 
 > No interaction between NAcc and stress predicting depression
@@ -229,15 +194,21 @@ mlm_caudate_l_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_l_win_prepost_z) # interactions: aleq_c.L1_z:caudate_l_prepost_resWIN    
+summary(mlm_caudate_l_win_prepost_z) # interactions: aleq_c.L1_z:caudate_l_prepost_resWIN 
+sjPlot::tab_model(
+  mlm_caudate_l_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 sim_slopes(mlm_caudate_l_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE)
 
-hist(pad_and_rois_merge_WIN_z$caudate_l_prepost_resWIN)
+check_convergence(mlm_caudate_l_win_prepost_z)
 plot_model(mlm_caudate_l_win_prepost_z, type = "diag") 
-check_model(mlm_caudate_l_win_prepost_z) # okay
+check_model(mlm_caudate_l_win_prepost_z) # 3 outliers
 check_outliers(mlm_caudate_l_win_prepost_z)
 pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
 
+# Testing without outliers
 mlm_caudate_l_win_prepost_z_out <- 
   lmer(
     mafq_c_w_z ~ 
@@ -245,24 +216,14 @@ mlm_caudate_l_win_prepost_z_out <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-check_model(mlm_caudate_l_win_prepost_z_out) 
+check_model(mlm_caudate_l_win_prepost_z_out) # looks like no other outliers
+check_convergence(mlm_caudate_l_win_prepost_z_out)
+sjPlot::tab_model(
+  mlm_caudate_l_win_prepost_z_out, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 
-
-mlm_caudate_l_win_prepost <- 
-  lmer(
-    mafq_c_w_z ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1*caudate_l_prepost_resWIN  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
-  )
-sjPlot::plot_model(mlm_caudate_l_win_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
-sim_slopes(mlm_caudate_l_win_prepost_z_out, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE)
-
-####### Exploratory PRE vs POST for L CAUDATE ########
-exp_caud_l_pre <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*caudate_l.pre_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_caud_l_pre)
-exp_caud_l_post <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z + caudate_l.pre_z +  aleq_c.L1_z*caudate_l.post_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_caud_l_post)
 
 ####### Exploratory adjusting for longitudinal MASC and SHAPS ####### 
 mlm_caudate_l_win_prepost_z_masc <- 
@@ -272,7 +233,13 @@ mlm_caudate_l_win_prepost_z_masc <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-summary(mlm_caudate_l_win_prepost_z_masc) # interaction holds 
+summary(mlm_caudate_l_win_prepost_z_masc)  
+check_convergence(mlm_caudate_l_win_prepost_z_masc)
+sjPlot::tab_model(
+  mlm_caudate_l_win_prepost_z_masc, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds 
 
 mlm_caudate_l_win_prepost_masc <- 
   lmer(
@@ -286,7 +253,7 @@ mlm_caudate_l_win_prepost_masc <-
 sjPlot::plot_model(mlm_caudate_l_win_prepost_masc, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "", legend.title ="Residualized L Caudate \n Post-Pre Acute Stress")
 save_plot("L.CaudxStress-Depression.png", fig = ggplot2::last_plot(), width = 12, height = 8, dpi = 300, theme = ggplot2::theme_get(), label.color = "black", label.size = 2.4, axis.textsize = 0.8, axis.titlesize = 0.75, legend.textsize = 0.6, legend.titlesize = 0.65, legend.itemsize = 0.5)
 
-sim_slopes(mlm_caudate_l_win_prepost_z_masc, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE) 
+sim_slopes(mlm_caudate_l_win_prepost_z_masc, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE)
 
 mlm_caudate_l_win_prepost_z_shaps <- 
   lmer(
@@ -295,19 +262,14 @@ mlm_caudate_l_win_prepost_z_shaps <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-summary(mlm_caudate_l_win_prepost_z_shaps) # interaction holds
-
-mlm_caudate_l_win_prepost_shaps <- 
-  lmer(
-    mafq_c_w ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1 * caudate_l_prepost_resWIN  + shaps_c +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
-  )
-
-sjPlot::plot_model(mlm_caudate_l_win_prepost_shaps, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
+summary(mlm_caudate_l_win_prepost_z_shaps) 
+check_convergence(mlm_caudate_l_win_prepost_z_shaps)
+sjPlot::tab_model( 
+  mlm_caudate_l_win_prepost_z_shaps, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds
 sim_slopes(mlm_caudate_l_win_prepost_z_shaps, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE)
-
 
 # caudate_r x within-person stress
 mlm_caudate_r_win_prepost_z <- 
@@ -317,12 +279,85 @@ mlm_caudate_r_win_prepost_z <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_caudate_r_win_prepost_z) 
+summary(mlm_caudate_r_win_prepost_z)# interactions: aleq_c.L1_z:caudate_r_prepost_resWIN 
+sim_slopes(mlm_caudate_r_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_r_prepost_resWIN, jnplot=TRUE)
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
+check_convergence(mlm_caudate_r_win_prepost_z)
+plot_model(mlm_caudate_r_win_prepost_z, type = "diag") 
+check_model(mlm_caudate_r_win_prepost_z) # 3 outliers
+check_outliers(mlm_caudate_r_win_prepost_z)
+pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
+
+# Testing without outliers
+mlm_caudate_r_win_prepost_z_out <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * caudate_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
+  )
+check_model(mlm_caudate_r_win_prepost_z_out) # looks like no other outliers
+check_convergence(mlm_caudate_r_win_prepost_z_out)
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z_out, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
+
+####### Exploratory adjusting for longitudinal MASC and SHAPS ####### 
+mlm_caudate_r_win_prepost_z_masc <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * caudate_r_prepost_resWIN  + masc_c_total_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
+  )
+summary(mlm_caudate_r_win_prepost_z_masc) # interaction holds 
+check_convergence(mlm_caudate_r_win_prepost_z_masc)
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z_masc, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
+
+mlm_caudate_r_win_prepost_masc <- 
+  lmer(
+    mafq_c_w ~ 
+      Age_z + TannerMean + aleq_c.L2 +  aleq_c.L1 * caudate_r_prepost_resWIN  + masc_c_total +
+         (1 + visitN | subID), 
+       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
+  )
+
+# title = "R Caudate Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Depression"
+sjPlot::plot_model(mlm_caudate_r_win_prepost_masc, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "", legend.title ="Residualized R Caudate \n Post-Pre Acute Stress")
+save_plot("R.CaudxStress-Depression.png", fig = ggplot2::last_plot(), width = 12, height = 8, dpi = 300, theme = ggplot2::theme_get(), label.color = "black", label.size = 2.4, axis.textsize = 0.8, axis.titlesize = 0.75, legend.textsize = 0.6, legend.titlesize = 0.65, legend.itemsize = 0.5)
+
+sim_slopes(mlm_caudate_r_win_prepost_z_masc, pred=aleq_c.L1_z, modx=caudate_r_prepost_resWIN, jnplot=TRUE)
+
+mlm_caudate_r_win_prepost_z_shaps <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * caudate_r_prepost_resWIN  + shaps_c_z +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
+  )
+summary(mlm_caudate_r_win_prepost_z_shaps) 
+check_convergence(mlm_caudate_r_win_prepost_z_shaps)
+sjPlot::tab_model( 
+  mlm_caudate_r_win_prepost_z_shaps, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234) # interaction holds
+sim_slopes(mlm_caudate_r_win_prepost_z_shaps, pred=aleq_c.L1_z, modx=caudate_r_prepost_resWIN, jnplot=TRUE)
 ```
 
-> 2 way interaction between L caudate and stress predicitng depression
+> 2 way interaction between L and R caudate and stress predicitng depression
 
-# Table
+# Table: L Caudate
 ```{r}
 sjPlot::tab_model(
   mlm_caudate_l_win_prepost_z, 
@@ -347,6 +382,30 @@ sjPlot::tab_model(
   file = "LCaudate_Main_Depression.doc")
 ```
 
+# Table: R Caudate
+```{r}
+sjPlot::tab_model(
+  mlm_caudate_r_win_prepost_z, 
+  mlm_caudate_r_win_prepost_z_out, 
+  mlm_caudate_r_win_prepost_z_masc, 
+  mlm_caudate_r_win_prepost_z_shaps,
+  bootstrap = TRUE,
+  iterations = 1000, 
+  dv.labels = c("Depression Severity", "Depression Severity", "Depression Severity", "Depression Severity"), 
+  seed = 1234,
+  pred.labels =
+    c("Intercept", 
+      "Age", 
+      "Tanner",
+      "Between-person Stress", 
+      "Within-person Stress", 
+      "R Caudate", 
+      "Within-person Stress*R Caudate", 
+      "Anxiety", 
+      "Anhedonia"
+      ),
+  file = "RCaudate_Main_Depression.doc")
+```
 
 ### Putamen pre-post-stress win
 > One participant was missing 2 voxels of coverage in their R putamen, so this code chucnk also conducts sensitivity analysis excluding that participant.
@@ -361,12 +420,17 @@ mlm_putamen_l_win_prepost_z <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_putamen_l_win_prepost_z) # interactions: aleq_c.L1_z:putamen_l_prepost_resWIN
-
-hist(pad_and_rois_merge_WIN_z$caudate_l_prepost_resWIN)
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234
+)
+sim_slopes(mlm_putamen_l_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_l_prepost_resWIN, jnplot=TRUE)
+check_convergence(mlm_putamen_l_win_prepost_z)
 plot_model(mlm_putamen_l_win_prepost_z, type = "diag") 
-check_model(mlm_putamen_l_win_prepost_z)
+check_model(mlm_putamen_l_win_prepost_z) # 3 outliers (same as above)
 check_outliers(mlm_putamen_l_win_prepost_z)
-pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
 
 mlm_putamen_l_win_prepost_z_out <- 
   lmer(
@@ -375,24 +439,13 @@ mlm_putamen_l_win_prepost_z_out <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-check_model(mlm_putamen_l_win_prepost_z_out)
-
-mlm_putamen_l_win_prepost <-
-  lmer(
-    mafq_c_w ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1*putamen_l_prepost_resWIN  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
-  )
-sjPlot::plot_model(mlm_putamen_l_win_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
-sim_slopes(mlm_putamen_l_win_prepost_z_out, pred=aleq_c.L1_z, modx=putamen_l_prepost_resWIN, jnplot=TRUE)
-
-
-####### Exploratory PRE vs POST for L PUTAMEN ########
-exp_put_l_pre <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*putamen_l.pre_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_put_l_pre)
-exp_put_l_post <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z + putamen_l.pre_z +  aleq_c.L1_z*putamen_l.post_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_put_l_post)
+check_model(mlm_putamen_l_win_prepost_z_out) # looks like no other outliers
+check_convergence(mlm_putamen_l_win_prepost_z_out)
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z_out, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 
 ####### Exploratory adjusting for longitudinal MASC and SHAPS ####### 
 mlm_putamen_l_win_prepost_z_masc <- 
@@ -402,7 +455,14 @@ mlm_putamen_l_win_prepost_z_masc <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-summary(mlm_putamen_l_win_prepost_z_masc) # interaction holds 
+summary(mlm_putamen_l_win_prepost_z_masc) 
+check_convergence(mlm_putamen_l_win_prepost_z_masc)
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z_masc,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 
 mlm_putamen_l_win_prepost_masc <- 
   lmer(
@@ -422,8 +482,14 @@ mlm_putamen_l_win_prepost_z_shaps <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z
   )
-summary(mlm_putamen_l_win_prepost_z_shaps) # interaction holds 
-
+summary(mlm_putamen_l_win_prepost_z_shaps) 
+check_convergence(mlm_putamen_l_win_prepost_z_shaps)
+sjPlot::tab_model(
+  mlm_putamen_l_win_prepost_z_shaps,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 mlm_putamen_l_win_prepost_shaps <- 
   lmer(
     mafq_c_w ~ 
@@ -432,6 +498,7 @@ mlm_putamen_l_win_prepost_shaps <-
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
 sjPlot::plot_model(mlm_putamen_l_win_prepost_shaps, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "L Putamen Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Depression", legend.title ="Residualized L Putamen \n Post-Pre Acute Stress")
+
 sim_slopes(mlm_putamen_l_win_prepost_z_shaps, pred=aleq_c.L1_z, modx=putamen_l_prepost_resWIN, jnplot=TRUE)
 
 
@@ -444,10 +511,16 @@ mlm_putamen_r_win_prepost_z <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_putamen_r_win_prepost_z) # interactions:aleq_c.L1_z:putamen_r_prepost_resWIN   
-
-hist(pad_and_rois_merge_WIN_z$putamen_r_prepost_resWIN)
-plot_model(mlm_putamen_r_win_prepost_z, type = "diag") # okay
-check_model(mlm_putamen_r_win_prepost_z)
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234
+)
+sim_slopes(mlm_putamen_r_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE)
+check_convergence(mlm_putamen_r_win_prepost_z)
+plot_model(mlm_putamen_r_win_prepost_z, type = "diag") 
+check_model(mlm_putamen_r_win_prepost_z) # 3 outliers (same as above)
 check_outliers(mlm_putamen_r_win_prepost_z)
 
 mlm_putamen_r_win_prepost_z_out <- 
@@ -457,23 +530,13 @@ mlm_putamen_r_win_prepost_z_out <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-
-mlm_putamen_r_win_prepost <-
-  lmer(
-    mafq_c_w ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1*putamen_r_prepost_resWIN  +
-         (1 + visitN | subID), 
-       data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
-  )
-sjPlot::plot_model(mlm_putamen_r_win_prepost, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
-sim_slopes(mlm_putamen_r_win_prepost_z_out, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE)
-
-####### Exploratory PRE vs POST for R PUTAMEN ########
-exp_put_r_pre <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*putamen_r.pre_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_put_r_pre)
-exp_put_r_post <- lmer(mafq_c_w_z ~ Age_z + TannerMean_z + aleq_c.L2_z + putamen_r.pre_z +  aleq_c.L1_z*putamen_r.post_z  + (1 + visit_num_z | subID), data = pad_and_rois_merge_WIN_z)
-summary(exp_put_r_post)
-
+check_model(mlm_putamen_r_win_prepost_z_out) # looks like no other outliers
+check_convergence(mlm_putamen_r_win_prepost_z_out)
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_out, 
+  bootstrap = TRUE,
+  iterations = 1000, 
+  seed = 1234)
 
 ####### Exploratory adjusting for longitudinal MASC and SHAPS ####### 
 mlm_putamen_r_win_prepost_z_masc <- 
@@ -483,16 +546,24 @@ mlm_putamen_r_win_prepost_z_masc <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-summary(mlm_putamen_r_win_prepost_z_masc) # interaction holds 
+summary(mlm_putamen_r_win_prepost_z_masc) 
+check_convergence(mlm_putamen_r_win_prepost_z_masc)
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_masc,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 
 mlm_putamen_r_win_prepost_masc <- 
   lmer(
     mafq_c_w ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1 * putamen_r_prepost_resWIN  + masc_c_total +
+      Age + TannerMean  + aleq_c.L2 +  aleq_c.L1 * putamen_r_prepost_resWIN  + masc_c_total +
          (1 + visitN | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-sjPlot::plot_model(mlm_putamen_r_win_prepost_masc, type = "int", show.data = TRUE, robust = TRUE, mdrt.values = "meansd")
+sjPlot::plot_model(mlm_putamen_r_win_prepost_masc, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1,robust = TRUE, mdrt.values = "meansd", title = "R Putamen Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Depression", legend.title ="Residualized R Putamen \n Post-Pre Acute Stress")
+
 sim_slopes(mlm_putamen_r_win_prepost_z_masc, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE)
 
 mlm_putamen_r_win_prepost_z_shaps <- 
@@ -502,17 +573,26 @@ mlm_putamen_r_win_prepost_z_shaps <-
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-summary(mlm_putamen_r_win_prepost_z_shaps) # interaction holds 
-
+summary(mlm_putamen_r_win_prepost_z_shaps) 
+check_convergence(mlm_putamen_r_win_prepost_z_shaps)
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_shaps,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 mlm_putamen_r_win_prepost_shaps <- 
   lmer(
     mafq_c_w ~ 
-      Age + TannerMean + aleq_c.L2 +  aleq_c.L1 * putamen_r_prepost_resWIN  + shaps_c +
+      Age + TannerMean  + aleq_c.L2 +  aleq_c.L1 * putamen_r_prepost_resWIN  + shaps_c +
          (1 + visitN | subID), 
        data = pad_and_rois_merge_WIN_z[-c(61, 118, 332),]
   )
-sjPlot::plot_model(mlm_putamen_r_win_prepost_shaps, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd")
+sjPlot::plot_model(mlm_putamen_r_win_prepost_shaps, type = "int", show.data = TRUE, colors = "Dark2", dot.size = 1, robust = TRUE, mdrt.values = "meansd", title = "R Putamen Activation Post-Stress Moderates \n Longitudinal Association between Life Stress and Depression", legend.title ="Residualized R Putamen \n Post-Pre Acute Stress")
+
 sim_slopes(mlm_putamen_r_win_prepost_z_shaps, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE)
+
+
 
 #### Sensitivity Excluding HP809 ####
 # sub HP809 includes rows
@@ -536,8 +616,12 @@ mlm_putamen_r_win_prepost_z_sens <-
        data = pad_and_rois_merge_WIN_Z_sens[-c(61, 114, 328),]
   )
 summary(mlm_putamen_r_win_prepost_z_sens) 
-
-
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 mlm_putamen_r_win_prepost_z_masc_sens <- 
   lmer(
     mafq_c_w_z ~ 
@@ -546,6 +630,12 @@ mlm_putamen_r_win_prepost_z_masc_sens <-
        data = pad_and_rois_merge_WIN_Z_sens[-c(61, 114, 328),]
   )
 summary(mlm_putamen_r_win_prepost_z_masc_sens)
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_masc_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 
 mlm_putamen_r_win_prepost_z_shaps_sens <- 
   lmer(
@@ -555,12 +645,17 @@ mlm_putamen_r_win_prepost_z_shaps_sens <-
        data = pad_and_rois_merge_WIN_Z_sens[-c(61, 114, 328),]
   )
 summary(mlm_putamen_r_win_prepost_z_shaps_sens) 
-
+sjPlot::tab_model(
+  mlm_putamen_r_win_prepost_z_shaps_sens,
+  bootstrap = TRUE,
+  iterations = 1000,
+  seed = 1234 # interaction holds 
+)
 ```
 
 > 2 way interaction between L and R putamen and stress predicitng depressoin
 
-# Table L Putamen
+# Table: L Putamen
 ```{r}
 sjPlot::tab_model(
   mlm_putamen_l_win_prepost_z, 
@@ -585,7 +680,7 @@ sjPlot::tab_model(
   file = "LPutamen_Main_Depression.doc")
 ```
 
-# Table R Putamen
+# Table: R Putamen
 ```{r}
 sjPlot::tab_model(
   mlm_putamen_r_win_prepost_z, 
@@ -611,7 +706,7 @@ sjPlot::tab_model(
 ```
 
 
-# Table Removing Observations without full Coverage
+# Table: Removing Observations without full Coverage in R Putamen
 ```{r}
 sjPlot::tab_model(
   mlm_putamen_r_win_prepost_z_sens, 
@@ -640,9 +735,9 @@ sjPlot::tab_model(
 
 ```{r}
 # l NAcc, r NAcc, l Caudate, r Caudate, l Putamen, r Putamen
-pgain <- c(0.972, 0.684, 0.008, 0.504, 0.012, 0.040)
+pgain <- c(0.940, 0.314, 0.001, 0.002, 0.001, 0.001)
 p.adjust(pgain, method = "fdr", n = length(pgain))
-# CORRECTED l NACC: 0.9720 r NACC: 0.8208 l CAUD: 0.0360, r CAUD: 0.7560, l PUT: 0.0360, r PUT: 0.0800
+# CORRECTED l NACC: 0.9400 r NACC: 0.3768 l CAUD: 0.0020, r CAUD: 0.0030, l PUT: 0.0020, r PUT: 0.0020
 ```
 
 
@@ -667,7 +762,7 @@ pad_and_rois_merge_LOSS_z_l2 <-
 # dACC x within-person stress
 mlm_dacc_loss_prepost_z <- 
   lmer(
-    mafq_c_w_log_z ~ 
+    mafq_c_w_z ~ 
       Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*dACC_prepost_resLOSS  +
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
@@ -679,7 +774,7 @@ summary(mlm_dacc_loss_prepost_z) # No interaction
 ```{r}
 mlm_antins_l_prepost_z <- 
   lmer(
-    mafq_c_w_log_z ~ 
+    mafq_c_w_z ~ 
       Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*AntIns_l_prepost_resLOSS  +
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
@@ -688,7 +783,7 @@ summary(mlm_antins_l_prepost_z) #  No interaction
 
 mlm_antins_r_prepost_z <- 
   lmer(
-    mafq_c_w_log_z ~ 
+    mafq_c_w_z ~ 
       Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z*AntIns_r_prepost_resLOSS  +
          (1 + visit_num_z | subID), 
        data = pad_and_rois_merge_LOSS_z
@@ -702,10 +797,9 @@ summary(mlm_antins_r_prepost_z) #  No interaction
 sjPlot::tab_model(
   mlm_NAcc_l_win_prepost_z, 
   mlm_NAcc_r_win_prepost_z,
-  mlm_caudate_r_win_prepost_z,
   bootstrap = TRUE,
   iterations = 1000, 
-  dv.labels = c("Depression Severity", "Depression Severity", "Depression Severity"), 
+  dv.labels = c("Depression Severity", "Depression Severity"), 
   seed = 1234,
   pred.labels = 
     c("Intercept",
@@ -716,9 +810,7 @@ sjPlot::tab_model(
       "L NAcc",
       "Within-Person Stress* L NAcc",
       "R NAcc",
-      "Within-Person Stress* R NAcc",
-      "R Caudate",
-      "Within-Person Stress* R Caudate"
+      "Within-Person Stress* R NAcc"
       ),
   file = "Depression_NullResults_Win.doc")
 ```
