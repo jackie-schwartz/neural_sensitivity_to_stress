@@ -17,20 +17,11 @@ Correlations among depression, anhedonia, and anxiety
 library(tidyverse)
 library(foreign)
 library(readxl)
-library(lubridate)
-library(lmerTest)
 library(psych)
 library(viridis)
 library(hrbrthemes)
-library(forcats)
-library(DescTools)
-library(rstatix)
-library(car)
 library(ggpubr)
-library(robustHD)
-library(qwraps2)
-library(knitr)
-library(lme4)
+library(rstatix)
 ```
 
 
@@ -447,7 +438,7 @@ plot(aleqInt_NonInt)
 ## VAS RATINGS PRE ##
 ```{r}
 library(readxl)
-prefp <- "~/Affect_PRE/PRE_MERGE.xlsx"
+prefp <- "~/PRE_MERGE.xlsx"
 # Read in an Eprime text file
 pre_vas <- read_excel(prefp, sheet = "VAS_PRE_RATINGS")
 
@@ -469,7 +460,7 @@ pre_vas2 <-
 ## VAS RATINGS POST ##
 ```{r}
 library(readxl)
-postfp <- "~/Affect_POST/POST_MERGE.xlsx"
+postfp <- "~/POST_MERGE.xlsx"
 # Read in an Eprime text file
 post_vas <- read_excel(postfp, sheet = "VAS_POST_RATINGS")
 
@@ -544,29 +535,35 @@ affectsum <-
   ) %>%
   mutate(se=sd/sqrt(n))  %>%
   mutate(ic=se * qt((1-0.05)/2 + .5, n-1))
+limits <- aes(ymin=affectsum$mean-affectsum$ic, ymax=affectsum$mean+affectsum$ic)
 
-affectsum %>%
+stat.test <- compare_means(
+  value ~ run, data = vas_long, group.by = "affect",
+  method = "t.test"
+)
+
+vas_long %>%
   dplyr::mutate(
     run_type = recode_factor(run, Pre = "Pre-Stress", Post = "Post-Stress")
     ) %>%
-  ggplot(
-    aes(x = run_type, y = mean, fill = affect)
-  ) +
-  geom_bar(stat="identity", position = position_dodge(), alpha = .8) +
-  geom_errorbar(
-    aes(ymin=mean-ic, ymax=mean+ic),
-    width=0.2, colour="black", position = position_dodge(.9)
-    ) +
-  theme_classic() +
-  facet_wrap(~affect) +
-  scale_fill_manual(values=c('darkslateblue','gold')) +
-  labs(
-    x = "Run",
-    y = "Affect Rating",
-    fill = "Affect",
+  ggbarplot(
+    x = "run_type", y = "value", fill = "run_type",
+    add = c("mean_ci"),
+    add.params = list(color = "black", size = 1),
+    position = position_dodge(),
+    width = 1,
+    palette = c("darkslateblue", "gold"),
+    alpha = .3,
+    facet.by = "affect",
+    panel.labs = list(affect = c("Negative Affect", "Positive Affect")),
+    xlab = "Run",
+    ylab = "Affect Rating",
+    legend.title = "Run",
     title = ""
-  ) 
-ggsave("vas_rating.png", width = 5, height = 3)
+    ) +
+  geom_point(aes(col = run_type), position = "jitter", size = .8, alpha = .8) 
+  
+ggsave("vas_rating.png", width = 5, height = 4)
   
 ```
 
