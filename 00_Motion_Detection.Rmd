@@ -2,11 +2,7 @@
 title: "00_Motion_Detection"
 author: "Jackie Kirshenbaum"
 date: "1/10/2022; revisited 02/27/2022"
-output:
-  html_document:
-    df_print: paged
-  toc: yes
-  toc_float: yes
+output: html_notebook
 editor_options: 
   chunk_output_type: inline
 ---
@@ -276,6 +272,7 @@ cens_comb_ex %>%
   ) %>%
   dplyr::select(subID)
 ```
+
 
 ```{r}
 write_csv(cens_comb_ex, "~/Jackie/pre_and_post_excl_ids_.3mm.csv")

@@ -1,2 +1,2 @@
 # neural_sensitivity_to_stress
-This repo contains scripts needed to conduct longitudinal models examining neural sensitivity to acute stress as moderator for the association between life stress and clinical symptoms.
+This repo contains scripts needed to conduct models examining neural sensitivity to acute stress as moderator for the longitudinal association between life stress and psychiatric symptoms. Primary analysis examines change in brain activation to reward/loss as a moderator for the longituidnal association between life stress and anhedonia. Secondary analyses examines change in brain activation to reward/loss as a moderator for the longituidnal associations between life stress and depression/anxiety. 

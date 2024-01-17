@@ -328,7 +328,7 @@ pad_and_rois_w <-
 
 ```{r}
 pad_and_rois_w %>%
-  ggplot(aes(x=mafq_c_w_log)) +
+  ggplot(aes(x=mafq_c_w)) +
   geom_histogram(fill = "white", color = "black") +
   labs(x = "Depression Severity")
 
@@ -336,6 +336,19 @@ pad_and_rois_w %>%
   ggplot(aes(x=aleq_c)) +
   geom_histogram(fill = "white", color = "black") +
   labs(x = "Stress Severity")
+```
+
+# Means and SDs for MAFQ
+
+```{r}
+means_by_visit <-
+  pad_and_rois_w %>%
+  dplyr::group_by(visit) %>%
+  dplyr::summarise(
+    mean_mafq = round(mean(mafq_c_w), 2),
+    sd_mafq = round(sd(mafq_c_w), 2)
+  )
+write_csv(means_by_visit, "mafq_means_by_visit.csv")
 ```
 
 # How do depression and stress go together? 

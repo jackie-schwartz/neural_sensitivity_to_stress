@@ -17,6 +17,7 @@ library(sjPlot) # 2.8.12
 library(interactions) # 1.1.5
 library(performance) # 0.10.2
 library(lmerTest) # 3.1-3
+library(interactions) # 1.1.5
 
 sessionInfo()
 ```
@@ -166,7 +167,6 @@ pad_and_rois_merge_WIN_z_l2 <-
   ) %>%
   filter(visitN == 0) 
 
-library(interactions)
 ```
 
 ### NAcc pre-post-stress win
@@ -310,7 +310,8 @@ sjPlot::tab_model(
   iterations = 1000, 
   seed = 1234) 
 
-sim_slopes(mlm_dacc_loss_prepost_z, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE)
+sim_slopes(mlm_dacc_loss_prepost_z, pred=aleq_c.L1_z, modx=dACC_prepost_resLOSS, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_dacc_loss_prepost_z, aleq_c.L1_z, dACC_prepost_resLOSS)
 
 check_convergence(mlm_dacc_loss_prepost_z)
 plot_model(mlm_dacc_loss_prepost_z, type = "diag") 
@@ -386,6 +387,52 @@ sjPlot::tab_model(
   file = "dACC_Main_Anxiety.doc")
 ```
 
+#### Based on Reviewer Recommendation, testing interpersonal vs noninterersonal stress
+
+```{r}
+# dACC x within-person interpersonal stress
+INTmlm_dacc_loss_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleqInt_c.L2_z +  aleqInt_c.L1_z * dACC_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(INTmlm_dacc_loss_prepost_z)
+
+# dACC x within-person non-interpersonal stress
+NONINTmlm_dacc_loss_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * dACC_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(NONINTmlm_dacc_loss_prepost_z)
+
+AIC(INTmlm_dacc_loss_prepost_z, NONINTmlm_dacc_loss_prepost_z)
+BIC(INTmlm_dacc_loss_prepost_z, NONINTmlm_dacc_loss_prepost_z)
+
+
+```
+
+> Stronger for interpersonal compared to non-interpersonal stress
+
+#### Based on Reviewer Recommendation, testing model with fixed effect of visit 
+
+```{r}
+visit_mlm_dacc_loss_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleq_c.L2_z +  aleq_c.L1_z * dACC_prepost_resLOSS  +
+         visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(visit_mlm_dacc_loss_prepost_z)
+```
+> Adding fixed effect of visit number does not change the interaction between stress and ROI
+
+
 ### AntIns pre-post-stress loss
 ```{r}
 mlm_antins_l_prepost_z <- 
@@ -416,7 +463,8 @@ sjPlot::tab_model(
   iterations = 1000, 
   seed = 1234) # interaction
 
-sim_slopes(mlm_antins_r_prepost_z, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
+sim_slopes(mlm_antins_r_prepost_z, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_antins_r_prepost_z, aleq_c.L1_z, AntIns_r_prepost_resLOSS)
 
 check_convergence(mlm_antins_r_prepost_z)
 plot_model(mlm_antins_r_prepost_z, type = "diag") 
@@ -467,6 +515,43 @@ sjPlot::tab_model(
 sim_slopes(mlm_antins_r_prepost_z_shaps, pred=aleq_c.L1_z, modx=AntIns_r_prepost_resLOSS, jnplot=TRUE)
 
 ```
+
+#### Based on Reviewer Recommendation, testing interpersonal vs noninterersonal stress
+
+```{r}
+INTmlm_antins_r_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleqInt_c.L2_z +  aleqInt_c.L1_z * AntIns_r_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(INTmlm_antins_r_prepost_z)
+
+NONINTmlm_antins_r_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * AntIns_r_prepost_resLOSS  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(NONINTmlm_antins_r_prepost_z)
+```
+
+> Both interpersonal and non-interpersonal stress interact with the R ant insula to predict anxiety severity
+
+#### Based on Reviewer Recommendation, testing model with fixed effect of visit 
+
+```{r}
+visit_mlm_antins_r_prepost_z <- 
+  lmer(
+    masc_c_total_z ~ 
+      Sex + aleqInt_c.L2_z +  aleqInt_c.L1_z * AntIns_r_prepost_resLOSS  + visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_LOSS_z
+  )
+summary(visit_mlm_antins_r_prepost_z)
+```
+> Adding fixed effect of visit number does not change the interaction between stress and ROI
 
 # Table R Ant Ins
 ```{r}

@@ -17,6 +17,7 @@ library(sjPlot) # 2.8.12
 library(interactions) # 1.1.5
 library(performance) # 0.10.2
 library(lmerTest) # 3.1-3
+library(interactions) # 1.1.5
 
 sessionInfo()
 ```
@@ -140,7 +141,6 @@ pad_and_rois_merge_WIN_z_l2 <-
   dplyr::group_by(subID) %>%
   dplyr::mutate(
     mean_mafq = mean(mafq_c_w, na.rm = TRUE),
-    mean_mafq_log = mean(mafq_c_w_log, na.rm = TRUE),
     mean_masc = mean(masc_c_total, na.rm = TRUE),
     mean_shaps = mean(shaps_c, na.rm = TRUE)
   ) %>%
@@ -200,7 +200,8 @@ sjPlot::tab_model(
   bootstrap = TRUE,
   iterations = 1000, 
   seed = 1234)
-sim_slopes(mlm_caudate_l_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE)
+sim_slopes(mlm_caudate_l_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_l_prepost_resWIN, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_caudate_l_win_prepost_z, aleq_c.L1_z, caudate_l_prepost_resWIN)
 
 check_convergence(mlm_caudate_l_win_prepost_z)
 plot_model(mlm_caudate_l_win_prepost_z, type = "diag") 
@@ -280,7 +281,8 @@ mlm_caudate_r_win_prepost_z <-
        data = pad_and_rois_merge_WIN_z
   )
 summary(mlm_caudate_r_win_prepost_z)# interactions: aleq_c.L1_z:caudate_r_prepost_resWIN 
-sim_slopes(mlm_caudate_r_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_r_prepost_resWIN, jnplot=TRUE)
+sim_slopes(mlm_caudate_r_win_prepost_z, pred=aleq_c.L1_z, modx=caudate_r_prepost_resWIN, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_caudate_r_win_prepost_z, aleq_c.L1_z, caudate_r_prepost_resWIN)
 sjPlot::tab_model(
   mlm_caudate_r_win_prepost_z, 
   bootstrap = TRUE,
@@ -407,6 +409,78 @@ sjPlot::tab_model(
   file = "RCaudate_Main_Depression.doc")
 ```
 
+> 2 way interaction between L and R caudate and stress predicitng depression
+
+#### Based on Reviewer Recommendation, testing interpersonal vs noninterersonal stress
+
+```{r}
+# caudate_l x within-person interpersonal stress
+INT_mlm_caudate_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqInt_c.L2_z +  aleqInt_c.L1_z * caudate_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(INT_mlm_caudate_l_win_prepost_z) # interaction sig
+
+# caudate_l x within-person non-interpersonal stress
+NONINT_mlm_caudate_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * caudate_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(NONINT_mlm_caudate_l_win_prepost_z) # interaction not sig
+
+# caudate_r x within-person interpersonal stress
+INTmlm_caudate_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqInt_c.L2_z +  aleqInt_c.L1_z * caudate_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(INTmlm_caudate_r_win_prepost_z) # interaction sig
+
+# caudate_r x within-person non-interpersonal stress
+NONINTmlm_caudate_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * caudate_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(NONINTmlm_caudate_r_win_prepost_z) # interaction not sig
+```
+
+> 2 way interaction between L and R caudate and interpersonal stress, but not non-interpersonal stress predicitng depression
+
+#### Based on Reviewer Recommendation, testing model with fixed effect of visit 
+
+```{r}
+visit_mlm_caudate_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * caudate_l_prepost_resWIN  +
+         visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(visit_mlm_caudate_l_win_prepost_z)
+
+visit_mlm_caudate_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * caudate_r_prepost_resWIN  +
+         visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(visit_mlm_caudate_r_win_prepost_z)
+```
+
+> Adding fixed effect of visit number does not change the interaction between stress and ROI
+
 ### Putamen pre-post-stress win
 > One participant was missing 2 voxels of coverage in their R putamen, so this code chucnk also conducts sensitivity analysis excluding that participant.
 
@@ -426,7 +500,8 @@ sjPlot::tab_model(
   iterations = 1000,
   seed = 1234
 )
-sim_slopes(mlm_putamen_l_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_l_prepost_resWIN, jnplot=TRUE)
+sim_slopes(mlm_putamen_l_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_l_prepost_resWIN, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_putamen_l_win_prepost_z, aleq_c.L1_z, putamen_l_prepost_resWIN)
 check_convergence(mlm_putamen_l_win_prepost_z)
 plot_model(mlm_putamen_l_win_prepost_z, type = "diag") 
 check_model(mlm_putamen_l_win_prepost_z) # 3 outliers (same as above)
@@ -517,7 +592,8 @@ sjPlot::tab_model(
   iterations = 1000,
   seed = 1234
 )
-sim_slopes(mlm_putamen_r_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE)
+sim_slopes(mlm_putamen_r_win_prepost_z, pred=aleq_c.L1_z, modx=putamen_r_prepost_resWIN, jnplot=TRUE, confint = TRUE)
+probe_interaction(mlm_putamen_r_win_prepost_z, aleq_c.L1_z, putamen_r_prepost_resWIN)
 check_convergence(mlm_putamen_r_win_prepost_z)
 plot_model(mlm_putamen_r_win_prepost_z, type = "diag") 
 check_model(mlm_putamen_r_win_prepost_z) # 3 outliers (same as above)
@@ -729,6 +805,74 @@ sjPlot::tab_model(
       ),
   file = "RPutamen_dep_control_anx_anhedonia_sensitivity.doc")
 ```
+
+#### Based on Reviewer Recommendation, testing interpersonal vs noninterersonal stress
+
+```{r}
+# putamen_l x within-person interpersonal stress
+INT_mlm_putamen_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqInt_c.L2_z +  aleqInt_c.L1_z * putamen_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(INT_mlm_putamen_l_win_prepost_z) # interaction sig
+
+# putamen_l x within-person non-interpersonal stress
+NONINT_mlm_putamen_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * putamen_l_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(NONINT_mlm_putamen_l_win_prepost_z) # interaction not sig
+
+# putamen_r x within-person interpersonal stress
+INTmlm_putamen_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqInt_c.L2_z +  aleqInt_c.L1_z * putamen_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(INTmlm_putamen_r_win_prepost_z) # interaction sig
+
+# putamen_r x within-person non-interpersonal stress
+NONINTmlm_putamen_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleqNonInt_c.L2_z +  aleqNonInt_c.L1_z * putamen_r_prepost_resWIN  +
+         (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(NONINTmlm_putamen_r_win_prepost_z) # interaction not sig
+```
+
+#### Based on Reviewer Recommendation, testing model with fixed effect of visit 
+
+```{r}
+visit_mlm_putamen_l_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * putamen_l_prepost_resWIN  +
+         visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(visit_mlm_putamen_l_win_prepost_z)
+
+visit_mlm_putamen_r_win_prepost_z <- 
+  lmer(
+    mafq_c_w_z ~ 
+      Age_z + TannerMean_z + aleq_c.L2_z +  aleq_c.L1_z * putamen_r_prepost_resWIN  +
+         visit_num_z + (1 + visit_num_z | subID), 
+       data = pad_and_rois_merge_WIN_z
+  )
+summary(visit_mlm_putamen_r_win_prepost_z)
+```
+
+> Adding fixed effect of visit number does not change the interaction between stress and ROI
 
 
 #### MC CORRECTION FOR WIN

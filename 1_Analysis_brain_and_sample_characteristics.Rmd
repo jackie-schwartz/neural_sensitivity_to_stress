@@ -49,10 +49,10 @@ all_brain_ids_fp <- "~/Jackie/sub_notes.xlsx"
 pad_data <- load(pad_data_fp)
 
 # mri dates
-mri_date_fp <- "~/MRI and MRS Log File.xlsx"
+mri_date_fp <- "~/PAD_MRI/MRI and MRS Log File.xlsx"
 
 # baseline dates
-bl_date_fp <- "~/PAD Demographic Data.xlsx"
+bl_date_fp <- "~/ClinicalData/PAD Demographic Data.xlsx"
 
 # % female 
 pad %>%
@@ -259,11 +259,9 @@ summary_comp_tbl <-
     Hispanic_perc = (Hispanic_n/n)*100,
     Race_a = sum(Race == "Asian"),
     Race_a_perc = (Race_a/n)*100,  
-    Race_a = sum(Race == "Asian"),
-    Race_a_perc = (Race_a/n)*100,      
     Race_b = sum(Race == "Black"),
     Race_b_perc = (Race_b/n)*100,        
-    Race_m = sum(Race == "Black"),
+    Race_m = sum(Race == "Multiracial"),
     Race_m_perc = (Race_m/n)*100,        
     Race_w = sum(Race == "White"),
     Race_w_perc = (Race_w/n)*100,    
@@ -551,6 +549,167 @@ subj_list %>%
   )
 #   mean_days sd_days
 #  12.41463  41.313
+```
+
+# Comparing all those included from those excluded
+
+```{r}
+compr_all <-
+  raw %>%
+  dplyr::mutate(
+    included = 
+      case_when(subID %in% rois_and_pad$subID ~ "1", .default = "0")
+  ) %>%
+  dplyr::select(subID, included, everything()) %>%
+  dplyr::mutate(
+    subID = factor(subID),
+    included = factor(included)
+  )
+
+pad_data_wide_select <-
+  pad_data_wide %>%
+  dplyr::select(subID, TannerMean) %>%
+  dplyr::mutate(
+    subID = factor(subID) # pulling Tanner to compare across everyone
+  )
+
+pad_data_long_select_reduced <-
+  pad_data_long %>%
+  filter(visit == "0") %>%
+  dplyr::select(
+    subID, shaps_c, mafq_c, masc_c, aleq_c # pulling clinical data to compare across everyone
+  ) %>%
+  dplyr::mutate(
+    subID = factor(subID)
+    )
+
+compr_all_join <-
+  left_join(
+    compr_all,
+    pad_data_wide_select,
+    by = "subID"
+  ) %>%
+  dplyr::relocate(TannerMean, .after = "UseableStructural") %>% # Tanner only recorded if at scan?
+  left_join(pad_data_long_select_reduced, by = "subID") %>%
+  dplyr::mutate_if(is.character, as.factor)
+
+
+compr_all_join %>%
+  group_by(included) %>%
+  dplyr::summarise(n = n())
+
+compr_all_tbl <- 
+  compr_all_join %>% 
+  group_by(included) %>%
+  dplyr::summarise(
+    n = n(),
+    HighRisk_n = sum(Group == "HighRisk"),
+    HighRisk_perc = (HighRisk_n/n)*100,
+    RiskGrp_Unknown = sum(is.na(Group)),
+    RiskGrp_Unknown_perc = (RiskGrp_Unknown/n)*100,
+    Age_mean = mean(Age, na.rm = TRUE),
+    Age_sd = sd(Age, na.rm = TRUE),
+    TannerAvg_mean = mean(TannerMean, na.rm = TRUE),
+    TannerAvg_sd = sd(TannerMean, na.rm = TRUE),
+    TannerAvg_Unknown = sum(is.na(TannerMean)),
+    TannerAvg_Unknown_perc = (TannerAvg_Unknown/n)*100,
+    Female_n = sum(Sex == "F", na.rm = TRUE),
+    Female_perc = (Female_n/n)*100,
+    Female_Unknown = sum(is.na(Sex)),
+    Female_Unknown_perc = (Female_Unknown/n)*100,
+    Hispanic_n = sum(Hispanic == "Hispanic", na.rm = TRUE),
+    Hispanic_perc = (Hispanic_n/n)*100,
+    Hispanic_Unknown = sum(is.na(Hispanic)),
+    Hispanic_Unknown_perc = (Hispanic_Unknown/n)*100,
+    Race_a = sum(Race == "Asian", na.rm = TRUE),
+    Race_a_perc = (Race_a/n)*100,  
+    Race_ai = sum(Race == "NativeAmerican", na.rm = TRUE),
+    Race_ai_perc = (Race_ai/n)*100,      
+    Race_b = sum(Race == "Black", na.rm = TRUE),
+    Race_b_perc = (Race_b/n)*100,        
+    Race_m = sum(Race == "Multiracial", na.rm = TRUE),
+    Race_m_perc = (Race_m/n)*100,        
+    Race_w = sum(Race == "White", na.rm = TRUE),
+    Race_w_perc = (Race_w/n)*100,   
+    Race_Unknown = sum(is.na(Race)),
+    Race_Unknown_perc = (Race_Unknown/n)*100,
+    FinancialAssistance_n = sum(FinancialAssistance == "TRUE", na.rm = TRUE),
+    FinancialAssistance_perc = (FinancialAssistance_n/n)*100,
+    FamilyIncome_unknown_n = sum(FamilyIncome == "Unknown", na.rm = TRUE) +
+      sum(is.na(FamilyIncome)),
+    FamilyIncome_unknown_perc = (FamilyIncome_unknown_n/n)*100,
+    FamilyIncome_less10_n = sum(FamilyIncome == "<$10k", na.rm = TRUE),
+    FamilyIncome_less10_perc = (FamilyIncome_less10_n/n)*100,
+    FamilyIncome_10_25_n = sum(FamilyIncome == "$10-25k", na.rm = TRUE),
+    FamilyIncome_10_25_perc = (FamilyIncome_10_25_n/n)*100,
+    FamilyIncome_25_50_n = sum(FamilyIncome == "$25-50k", na.rm = TRUE),
+    FamilyIncome_25_50_perc = (FamilyIncome_25_50_n/n)*100,    
+    FamilyIncome_50_75_n = sum(FamilyIncome == "$50-75k", na.rm = TRUE),
+    FamilyIncome_50_75_perc = (FamilyIncome_50_75_n/n)*100,       
+    FamilyIncome_75_100_n = sum(FamilyIncome == "$75-100k", na.rm = TRUE),
+    FamilyIncome_75_100_perc = (FamilyIncome_75_100_n/n)*100,      
+    FamilyIncome_100plus_n = sum(FamilyIncome == "$100k+", na.rm = TRUE),
+    FamilyIncome_100plus_perc = (FamilyIncome_100plus_n/n)*100,      
+    shaps_mean = mean(shaps_c, na.rm = TRUE),
+    shaps_sd = sd(shaps_c, na.rm = TRUE),
+    shaps_Unknown = sum(is.na(shaps_c)),
+    shaps_Unknown_perc = (shaps_Unknown/n)*100,
+    mafq_mean = mean(mafq_c, na.rm = TRUE),
+    mafq_sd = sd(mafq_c, na.rm = TRUE),
+    mafq_Unknown = sum(is.na(mafq_c)),
+    mafq_Unknown_perc = (mafq_Unknown/n)*100,    
+    masc_mean = mean(masc_c, na.rm = TRUE),
+    masc_sd = sd(masc_c, na.rm = TRUE),
+    masc_Unknown = sum(is.na(masc_c)),
+    masc_Unknown_perc = (masc_Unknown/n)*100,      
+    aleq_mean = mean(aleq_c, na.rm = TRUE),
+    aleq_sd = sd(aleq_c, na.rm = TRUE),
+    aleq_Unknown = sum(is.na(aleq_c)),
+    aleq_Unknown_perc = (aleq_Unknown/n)*100,      
+    )
+print(compr_all_tbl)
+write_csv(compr_all_tbl, "~/Jackie/summary_comp_all_inclu_exclu.csv")
+
+# Group Affiliation
+chisq.test(compr_all_join$included, compr_all_join$Group, rescale.p = TRUE) # no diff 
+# comparing proportions visually
+compr_all_join %>% ggplot(aes(x = included, fill = Group)) + geom_histogram(stat = "count") + theme_classic()
+
+# Age
+t.test(Age ~ included, data = compr_all_join) # no diff
+
+# Tanner
+t.test(TannerMean ~ included, data = compr_all_join) # no diff
+
+# Female vs Male
+chisq.test(compr_all_join$included, compr_all_join$Sex) # no diff
+
+# Hispanic
+chisq.test(compr_all_join$included, compr_all_join$Hispanic) # no diff (although hard to compare across hipanic and non-hispanic bc so few hispanic)
+
+# Race
+chisq.test(compr_all_join$included, compr_all_join$Race) # no diff (although hard to compare across levels bc so few POC)
+contingency_table <- table(compr_all_join$included, compr_all_join$Race)
+contingency_table
+pairwise_prop_test(contingency_table) 
+
+# Financial Assistance
+chisq.test(compr_all_join$included, compr_all_join$FinancialAssistance) # no diff
+
+# Family Income
+chisq.test(compr_all_join$included, compr_all_join$FamilyIncome) # no diff
+
+# Anhedonia
+t.test(shaps_c ~ included, data = compr_all_join) # no diff
+
+# Depression
+t.test(mafq_c ~ included, data = compr_all_join) # no diff
+
+# Anxiety
+t.test(masc_c ~ included, data = compr_all_join) # no diff
+
+# Stress
+t.test(aleq_c ~ included, data = compr_all_join) # no diff
 ```
 
 

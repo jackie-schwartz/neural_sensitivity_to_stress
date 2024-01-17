@@ -262,8 +262,20 @@ pad_data_hasbrain <-
 
 ```
 
+# Means and SDs for SHAPS
 
-# Plotting overall distributions of depression and stress
+```{r}
+means_by_visit <-
+  pad_data_hasbrain %>%
+  dplyr::group_by(visit) %>%
+  dplyr::summarise(
+    mean_masc = round(mean(masc_c_total), 2),
+    sd_masc = round(sd(masc_c_total), 2)
+  )
+write_csv(means_by_visit, "masc_means_by_visit.csv")
+```
+
+# Plotting overall distributions of anxiety and stress
 
 ```{r}
 pad_data_hasbrain %>%

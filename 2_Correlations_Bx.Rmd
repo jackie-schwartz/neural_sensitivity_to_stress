@@ -76,6 +76,35 @@ pad_data_hasbrain <-
 
 ```
 
+## How many follow-ups were completed?
+
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+visit_desc <-
+  pad_data_hasbrain %>%
+  filter(visit == "0") %>%
+  dplyr::select(subID, N_Long) # participants completed an average of 8 follow ups
+
+visit_desc %>%
+  dplyr::summarise(
+    visit_num_avg = mean(N_Long),
+    visit_num_mode = getmode(N_Long)
+  ) # most participants completed 10 follow-ups
+
+visit_desc %>%
+  dplyr::mutate(N_Long = factor(N_Long)) %>%
+  ggplot(
+    aes(x = N_Long, fill = N_Long)
+  ) +
+  geom_histogram(stat = "count")
+
+
+```
+
 ### Reading in winsorized mafq socres
 _This was the only clinical measure that needed to be winsorized_
 ```{r}
@@ -125,7 +154,6 @@ mean(pad_data_hasbrain2$mafq_c_w)
 sd(pad_data_hasbrain2$mafq_c_w)
 summary(pad_data_hasbrain2$mafq_c_w)
 ```
-
 
 # Distribution of shaps across time
 
@@ -438,7 +466,7 @@ plot(aleqInt_NonInt)
 ## VAS RATINGS PRE ##
 ```{r}
 library(readxl)
-prefp <- "~/PRE_MERGE.xlsx"
+prefp <- "~/Behavioral Tasks/Adolescent/Day 2/Affect_PRE/PRE_MERGE.xlsx"
 # Read in an Eprime text file
 pre_vas <- read_excel(prefp, sheet = "VAS_PRE_RATINGS")
 
@@ -460,7 +488,7 @@ pre_vas2 <-
 ## VAS RATINGS POST ##
 ```{r}
 library(readxl)
-postfp <- "~/POST_MERGE.xlsx"
+postfp <- "~/Behavioral Tasks/Adolescent/Day 2/Affect_POST/POST_MERGE.xlsx"
 # Read in an Eprime text file
 post_vas <- read_excel(postfp, sheet = "VAS_POST_RATINGS")
 
@@ -511,20 +539,37 @@ vas_long <-
   separate(., col = "Run", into = c("run", "affect"), sep = "([_])") %>%
   dplyr::mutate(run = factor(run))
 
+# PA
 vas_long_PA <-
   vas_long %>%
   filter(affect == "PA")
 
 t.test(value ~ run, data = vas_long_PA)
 
+# effect size PA change
+vas_wide_PA <- vas_long_PA %>% pivot_wider(names_from = run, values_from = value)
+pre_pa_mean <- mean(vas_wide_PA$Pre, na.rm =TRUE)
+post_pa_mean <- mean(vas_wide_PA$Post, na.rm =TRUE)
+vas_pa_cohensd <- 
+  (pre_pa_mean - post_pa_mean)/sqrt(((var(vas_wide_PA$Pre, na.rm = TRUE)) + (var(vas_wide_PA$Post, na.rm = TRUE)))/2) # 1.424192
+
+# NA
 vas_long_NA <-
   vas_long %>%
   filter(affect == "NA")
 
 t.test(value ~ run, data = vas_long_NA)
 
+# effect size NA change
+vas_wide_NA <- vas_long_NA %>% pivot_wider(names_from = run, values_from = value)
+pre_na_mean <- mean(vas_wide_NA$Pre, na.rm =TRUE)
+post_na_mean <- mean(vas_wide_NA$Post, na.rm =TRUE)
+vas_na_cohensd <- 
+  (post_na_mean - pre_na_mean)/sqrt(((var(vas_wide_NA$Post, na.rm = TRUE)) + (var(vas_wide_NA$Pre, na.rm = TRUE)))/2) # 1.698194
+
 vas_long$run = fct_relevel(vas_long$run, "Pre", "Post")
 
+# computing 95% CI
 affectsum <-
   vas_long %>%
   dplyr::group_by(run, affect) %>%
